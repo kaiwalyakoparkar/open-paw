@@ -1,6 +1,6 @@
 # First-time installation
 
-Agent Meow is a macOS menu-bar companion: pixel cat overlay, Gradium voice I/O, Hermes Agent for reasoning and MCP tools, screen annotation via right-click.
+Open Paw is a macOS menu-bar companion: pixel cat overlay, Gradium voice I/O, Hermes Agent for reasoning and MCP tools, screen annotation via right-click.
 
 ## Requirements
 
@@ -15,29 +15,29 @@ Agent Meow is a macOS menu-bar companion: pixel cat overlay, Gradium voice I/O, 
 ## 1. Clone and build
 
 ```bash
-git clone <your-remote-url> agent-meow
-cd agent-meow
+git clone <your-remote-url> open-paw
+cd open-paw
 
 # Run unit checks (no network, no API keys required)
-swift run AgentMeowCheck
+swift run OpenPawCheck
 
 # Build the app
-swift build --product AgentMeow
+swift build --product OpenPaw
 ```
 
-**Xcode:** open `Package.swift` (File → Open). The bundled `AgentMeow.xcodeproj` is a thin wrapper around the same Swift package.
+**Xcode:** open `Package.swift` (File → Open). The bundled `OpenPaw.xcodeproj` is a thin wrapper around the same Swift package.
 
 ## 2. Create local config (secrets stay out of git)
 
-Agent Meow reads **`~/.config/agent-meow/config.json`**. The repo ships only `config.example.json` — copy it locally:
+Open Paw reads **`~/.config/open-paw/config.json`**. The repo ships only `config.example.json` — copy it locally:
 
 ```bash
-mkdir -p ~/.config/agent-meow
-cp config.example.json ~/.config/agent-meow/config.json
-chmod 0600 ~/.config/agent-meow/config.json
+mkdir -p ~/.config/open-paw
+cp config.example.json ~/.config/open-paw/config.json
+chmod 0600 ~/.config/open-paw/config.json
 ```
 
-Edit `~/.config/agent-meow/config.json`:
+Edit `~/.config/open-paw/config.json`:
 
 | Field | Required | Description |
 |---|---|---|
@@ -54,14 +54,14 @@ Edit `~/.config/agent-meow/config.json`:
 ```bash
 export GRADIUM_API_KEY="your-gradium-key"
 export HERMES_API_KEY="your-hermes-server-key"
-swift run AgentMeow
+swift run OpenPaw
 ```
 
 > **Security:** never commit `config.json`, `.env`, or real API keys. The repo `.gitignore` blocks common secret paths.
 
 ## 3. Set up Hermes Agent
 
-Hermes MCP servers and provider routing live in **`~/.hermes/config.yaml`** (separate from Agent Meow config).
+Hermes MCP servers and provider routing live in **`~/.hermes/config.yaml`** (separate from Open Paw config).
 
 Enable the OpenAI-compatible API server. In `~/.hermes/.env` (or your Hermes env):
 
@@ -100,13 +100,13 @@ The app runs as a menu-bar accessory (`LSUIElement`); look for the 🐱 icon in 
 ## 5. Run
 
 ```bash
-swift run AgentMeow
+swift run OpenPaw
 ```
 
 Or run the built binary:
 
 ```bash
-.build/debug/AgentMeow
+.build/debug/OpenPaw
 ```
 
 ## Usage quick reference
@@ -124,7 +124,7 @@ Or run the built binary:
 
 | Symptom | Fix |
 |---|---|
-| "Add gradium.api_key…" bubble | Set key in `~/.config/agent-meow/config.json` or `GRADIUM_API_KEY` |
+| "Add gradium.api_key…" bubble | Set key in `~/.config/open-paw/config.json` or `GRADIUM_API_KEY` |
 | "Invalid API key" from Hermes | Match `hermes.api_key` ↔ `API_SERVER_KEY`; restart gateway |
 | Connection refused on `:8642` | Start Hermes with `API_SERVER_ENABLED=true` |
 | No speech detected | Check mic permission; adjust `gradium.stt.vad_threshold` |
@@ -133,11 +133,11 @@ Or run the built binary:
 ## Project layout
 
 ```
-agent-meow/
-├── AgentMeow/          # macOS app (UI, voice, vision, hotkeys)
-├── AgentMeowCore/      # Shared library (config, Hermes client, prompts)
-├── AgentMeowTests/     # AgentMeowCheck executable tests
-├── config.example.json # Template — copy to ~/.config/agent-meow/
+open-paw/
+├── OpenPaw/          # macOS app (UI, voice, vision, hotkeys)
+├── OpenPawCore/      # Shared library (config, Hermes client, prompts)
+├── OpenPawTests/     # OpenPawCheck executable tests
+├── config.example.json # Template — copy to ~/.config/open-paw/
 ├── Package.swift
 └── docs/
 ```

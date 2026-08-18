@@ -2,22 +2,22 @@
 import PackageDescription
 
 let package = Package(
-    name: "AgentMeow",
+    name: "OpenPaw",
     platforms: [.macOS(.v14)],
     products: [
-        .executable(name: "AgentMeow", targets: ["AgentMeow"]),
-        .executable(name: "AgentMeowCheck", targets: ["AgentMeowCheck"]),
-        .library(name: "AgentMeowCore", targets: ["AgentMeowCore"]),
+        .executable(name: "OpenPaw", targets: ["OpenPaw"]),
+        .executable(name: "OpenPawCheck", targets: ["OpenPawCheck"]),
+        .library(name: "OpenPawCore", targets: ["OpenPawCore"]),
     ],
     targets: [
         .target(
-            name: "AgentMeowCore",
-            path: "AgentMeowCore"
+            name: "OpenPawCore",
+            path: "OpenPawCore"
         ),
         .executableTarget(
-            name: "AgentMeow",
-            dependencies: ["AgentMeowCore"],
-            path: "AgentMeow",
+            name: "OpenPaw",
+            dependencies: ["OpenPawCore"],
+            path: "OpenPaw",
             exclude: ["Info.plist"],
             resources: [
                 .copy("Resources/cat_avatar.png"),
@@ -30,9 +30,9 @@ let package = Package(
             ]
         ),
         .executableTarget(
-            name: "AgentMeowCheck",
-            dependencies: ["AgentMeowCore"],
-            path: "AgentMeowTests"
+            name: "OpenPawCheck",
+            dependencies: ["OpenPawCore"],
+            path: "OpenPawTests"
         ),
     ]
 )

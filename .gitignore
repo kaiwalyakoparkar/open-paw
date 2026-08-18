@@ -25,5 +25,5 @@ secrets.json
 # User config directory (if ever symlinked or copied into the repo)
 .config/
 
-# Duplicate asset copy (canonical: AgentMeow/Resources/)
+# Duplicate asset copy (canonical: OpenPaw/Resources/)
 /Resources/

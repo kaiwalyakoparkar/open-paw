@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleIdentifier</key>
+	<string>local.openpaw</string>
+	<key>CFBundleName</key>
+	<string>OpenPaw</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>0.1.0</string>
+	<key>LSMinimumSystemVersion</key>
+	<string>14.2</string>
+	<key>LSUIElement</key>
+	<true/>
+	<key>NSDocumentsFolderUsageDescription</key>
+	<string>Open Paw reads your Obsidian vault when you ask about meeting notes, because the Hermes gateway cannot access Documents.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Open Paw listens when you wake the cat so Gradium can transcribe your voice.</string>
+	<key>NSScreenCaptureUsageDescription</key>
+	<string>Open Paw captures the main display when you annotate a region to explain.</string>
+</dict>
+</plist>

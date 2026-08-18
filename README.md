@@ -1,4 +1,4 @@
-# Agent Meow
+# Open Paw
 
 macOS overlay buddy (pixel orange cat). Wake with a tap or **Control+Option+Space**, talk via Gradium STT, act through Hermes MCP, annotate the screen with **right-click → Explain this**.
 
@@ -7,12 +7,12 @@ macOS overlay buddy (pixel orange cat). Wake with a tap or **Control+Option+Spac
 **First-time setup:** see **[docs/INSTALL.md](docs/INSTALL.md)** for prerequisites, config, Hermes gateway, permissions, and troubleshooting.
 
 ```bash
-swift run AgentMeowCheck          # unit checks
-swift build --product AgentMeow   # build
-swift run AgentMeow               # run
+swift run OpenPawCheck          # unit checks
+swift build --product OpenPaw   # build
+swift run OpenPaw               # run
 ```
 
-Copy `config.example.json` → `~/.config/agent-meow/config.json` and add your API keys before running. Never commit real keys.
+Copy `config.example.json` → `~/.config/open-paw/config.json` and add your API keys before running. Never commit real keys.
 
 ## Usage
 
