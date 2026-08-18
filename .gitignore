@@ -1,0 +1,29 @@
+# Swift / SPM
+.build/
+.swiftpm/
+Packages/
+DerivedData/
+*.xcodeproj/xcuserdata/
+*.xcuserstate
+
+# macOS
+.DS_Store
+
+# Local IDE / agent tooling (may contain plans with example secrets)
+.cursor/
+
+# Secrets and local config — never commit these
+config.json
+.env
+.env.*
+*.pem
+*.p12
+*.mobileprovision
+credentials.json
+secrets.json
+
+# User config directory (if ever symlinked or copied into the repo)
+.config/
+
+# Duplicate asset copy (canonical: AgentMeow/Resources/)
+/Resources/

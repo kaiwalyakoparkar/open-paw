@@ -1,0 +1,31 @@
+{
+  "gradium": {
+    "api_key": "",
+    "stt": {
+      "model_name": "default",
+      "delay_in_frames": 16,
+      "vad_horizon_index": 2,
+      "vad_threshold": 0.50,
+      "vad_consecutive_frames": 3
+    },
+    "tts": {
+      "voice_id": "YTpq7expH9539ERJ",
+      "output_format": "pcm"
+    }
+  },
+  "hermes": {
+    "base_url": "http://127.0.0.1:8642/v1",
+    "api_key": "change-me-local-dev",
+    "model": "hermes-agent",
+    "sse_timeout_seconds": 600
+  },
+  "hotkey": {
+    "hold": { "modifiers": [], "key": "right_option" },
+    "toggle": { "modifiers": ["control", "option"], "key": "space" }
+  },
+  "ui": {
+    "buddy_size": 80,
+    "default_position": "bottom-right",
+    "idle_timeout_seconds": 300
+  }
+}
