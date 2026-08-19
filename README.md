@@ -12,11 +12,11 @@
 
 Open Paw is a macOS menu-bar companion: a pixel orange cat overlay that wakes on your hotkey, listens through Gradium STT, reasons through a selectable agent harness (Hermes, Claude Code, or Codex), and annotates your screen when you ask it to explain what you see.
 
-[First-time installation](docs/INSTALL.md) · [Hermes API spike](docs/phase0-hermes-spike.md) · [Inspired by OpenClaw](https://github.com/openclaw/openclaw)
+[First-time installation](docs/INSTALL.md) · [Run with Claude or Codex](#run-with-claude-or-codex) · [Hermes API spike](docs/phase0-hermes-spike.md) · [Inspired by OpenClaw](https://github.com/openclaw/openclaw)
 
 ## Install
 
-Open Paw targets macOS 14.2 (Sonoma) or later. You need Xcode 15+ (Swift 5.9+), a [Gradium](https://gradium.ai/) API key, and one agent harness: a running [Hermes Agent](https://hermes-agent.nousresearch.com/) gateway, [Claude Code](https://docs.anthropic.com/en/docs/claude-code) (`claude` on PATH), or Codex CLI (`codex` on PATH).
+Open Paw targets macOS 14.2 (Sonoma) or later. You need Xcode 15+ (Swift 5.9+), a [Gradium](https://gradium.ai/) API key, and one agent harness: [Claude Code](https://docs.anthropic.com/en/docs/claude-code) (`claude` on PATH), Codex CLI (`codex` on PATH), or a running [Hermes Agent](https://hermes-agent.nousresearch.com/) gateway.
 
 ```bash
 git clone https://github.com/kaiwalyakoparkar/open-paw.git
@@ -25,23 +25,41 @@ swift run OpenPawCheck   # unit checks (no network, no keys)
 swift build --product OpenPaw
 ```
 
-Copy `config.example.json` → `~/.config/open-paw/config.json` and add your API keys before running. See the [installation guide](docs/INSTALL.md) for harness setup, macOS permissions, and troubleshooting.
+Copy `config.example.json` → `~/.config/open-paw/config.json` and add `gradium.api_key`. See the [installation guide](docs/INSTALL.md) for harness setup, macOS permissions, and troubleshooting.
 
-## Quick start
+## Run with Claude or Codex
 
-After config and a harness are ready:
+Already use Claude Code or Codex CLI? Start here. No Hermes gateway. No `hermes.api_key`. `--claude` / `--codex` override `harness` for **that process only**.
+
+### Claude Code (`--claude`)
+
+Install [`claude`](https://docs.anthropic.com/en/docs/claude-code) so it is on PATH (or set `claude.bin`). MCP stays in `~/.claude.json`.
 
 ```bash
 mkdir -p ~/.config/open-paw
 cp config.example.json ~/.config/open-paw/config.json
 chmod 0600 ~/.config/open-paw/config.json
-# edit ~/.config/open-paw/config.json (add gradium.api_key)
-# hermes.api_key required only when harness is hermes
+# edit config: add gradium.api_key only
 
-swift run OpenPaw
-# or: swift run OpenPaw --claude
-# or: swift run OpenPaw --codex
+swift run OpenPaw --claude
 ```
+
+To make Claude the default, set `"harness": "claude"` in config and run `swift run OpenPaw` with no flag.
+
+### Codex CLI (`--codex`)
+
+Install `codex` so it is on PATH (or set `codex.bin`). MCP stays in `~/.codex/config.toml`.
+
+```bash
+mkdir -p ~/.config/open-paw
+cp config.example.json ~/.config/open-paw/config.json
+chmod 0600 ~/.config/open-paw/config.json
+# edit config: add gradium.api_key only
+
+swift run OpenPaw --codex
+```
+
+To make Codex the default, set `"harness": "codex"` in config and run `swift run OpenPaw` with no flag.
 
 On first launch, grant **Microphone** and **Screen Recording** when macOS prompts. Look for the 🐱 icon in the menu bar.
 
@@ -52,6 +70,19 @@ Then:
 - **Right-click the cat → Explain this** to freeze the screen, draw a circle or rectangle, and speak a prompt
 
 Idle timeout (default 300s) sleeps the buddy and clears conversation history.
+
+## Quick start (Hermes)
+
+Hermes needs a running gateway plus `hermes.api_key`. After config is ready:
+
+```bash
+mkdir -p ~/.config/open-paw
+cp config.example.json ~/.config/open-paw/config.json
+chmod 0600 ~/.config/open-paw/config.json
+# edit ~/.config/open-paw/config.json (gradium.api_key + hermes.api_key)
+
+swift run OpenPaw
+```
 
 ## How it fits together
 
@@ -73,6 +104,7 @@ Hermes, Claude Code, and Codex tools run on the host through *their* configs. Re
 
 | Goal | Start here |
 | --- | --- |
+| Run with Claude Code (`--claude`) or Codex (`--codex`) | [Run with Claude or Codex](#run-with-claude-or-codex) |
 | First-time setup, permissions, troubleshooting | [docs/INSTALL.md](docs/INSTALL.md) |
 | Hermes API connectivity checklist | [docs/phase0-hermes-spike.md](docs/phase0-hermes-spike.md) |
 | Local config template | [config.example.json](config.example.json) |
