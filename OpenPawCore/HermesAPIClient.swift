@@ -1,11 +1,6 @@
 import Foundation
 
-public final class HermesAPIClient: @unchecked Sendable {
-    public struct StreamResult {
-        public var text: String
-        public var sawToolEvents: Bool
-    }
-
+public final class HermesAPIClient: AgentHarness, @unchecked Sendable {
     private let config: HermesConfig
     private var task: URLSessionDataTask?
 
@@ -76,14 +71,14 @@ private final class StreamDelegate: NSObject, URLSessionDataDelegate {
     private let onDelta: (String) -> Void
     private let onTool: (ToolCallDelta) -> Void
     private let onProgress: (String) -> Void
-    private let finish: (Result<HermesAPIClient.StreamResult, Error>) -> Void
+    private let finish: (Result<StreamResult, Error>) -> Void
     private var finished = false
 
     init(
         onDelta: @escaping (String) -> Void,
         onTool: @escaping (ToolCallDelta) -> Void,
         onProgress: @escaping (String) -> Void,
-        finish: @escaping (Result<HermesAPIClient.StreamResult, Error>) -> Void
+        finish: @escaping (Result<StreamResult, Error>) -> Void
     ) {
         self.onDelta = onDelta
         self.onTool = onTool
@@ -161,7 +156,7 @@ private final class StreamDelegate: NSObject, URLSessionDataDelegate {
         }
     }
 
-    private func complete(_ result: Result<HermesAPIClient.StreamResult, Error>) {
+    private func complete(_ result: Result<StreamResult, Error>) {
         guard !finished else { return }
         finished = true
         finish(result)

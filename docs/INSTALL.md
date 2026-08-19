@@ -1,6 +1,6 @@
 # First-time installation
 
-Open Paw is a macOS menu-bar companion: pixel cat overlay, Gradium voice I/O, Hermes Agent for reasoning and MCP tools, screen annotation via right-click.
+Open Paw is a macOS menu-bar companion: pixel cat overlay, Gradium voice I/O, a selectable agent harness (Hermes, Claude Code, or Codex), screen annotation via right-click.
 
 ## Requirements
 
@@ -8,9 +8,8 @@ Open Paw is a macOS menu-bar companion: pixel cat overlay, Gradium voice I/O, He
 |---|---|
 | macOS | 14.2 (Sonoma) or later |
 | Xcode | 15+ (Swift 5.9+) |
-| [Hermes Agent](https://hermes-agent.nousresearch.com/) | With API server enabled |
-| LLM proxy | OpenRouter-compatible endpoint (Hermes default: `http://localhost:8082/openrouter/`) |
 | Gradium | API key from [gradium.ai](https://gradium.ai/) |
+| One harness | Hermes gateway **or** `claude` on PATH **or** `codex` on PATH |
 
 ## 1. Clone and build
 
@@ -42,9 +41,13 @@ Edit `~/.config/open-paw/config.json`:
 | Field | Required | Description |
 |---|---|---|
 | `gradium.api_key` | Yes | Gradium API key |
-| `hermes.api_key` | Yes | Must match Hermes `API_SERVER_KEY` |
+| `harness` | No | `hermes` (default), `claude`, or `codex` |
+| `hermes.api_key` | If `harness` is hermes | Must match Hermes `API_SERVER_KEY` |
 | `hermes.base_url` | No | Default `http://127.0.0.1:8642/v1` |
 | `hermes.model` | No | Default `hermes-agent` |
+| `claude.bin` / `codex.bin` | No | CLI name or absolute path |
+| `claude.cwd` / `codex.cwd` | No | Working directory (`~` default). MCP/CLAUDE.md follow this |
+| `claude.permission_mode` | No | Default `acceptEdits`. `bypassPermissions` is YOLO |
 | `hotkey.hold` | No | Default: hold **Right Option** to talk |
 | `hotkey.toggle` | No | Default: **Control+Option+Space** wake/sleep |
 | `ui.idle_timeout_seconds` | No | Auto-sleep after idle (default 300) |
@@ -59,9 +62,13 @@ swift run OpenPaw
 
 > **Security:** never commit `config.json`, `.env`, or real API keys. The repo `.gitignore` blocks common secret paths.
 
-## 3. Set up Hermes Agent
+## 3. Set up an agent harness
 
-Hermes MCP servers and provider routing live in **`~/.hermes/config.yaml`** (separate from Open Paw config).
+Pick one. MCP is **not** copied into Open Paw — it stays in that tool's config.
+
+### Hermes
+
+Hermes MCP servers and provider routing live in **`~/.hermes/config.yaml`**.
 
 Enable the OpenAI-compatible API server. In `~/.hermes/.env` (or your Hermes env):
 
@@ -86,6 +93,27 @@ curl -s http://127.0.0.1:8642/v1/models \
 ```
 
 If connection fails, see [phase0-hermes-spike.md](phase0-hermes-spike.md) for the full curl checklist.
+
+### Claude Code
+
+Install `claude` so it is on PATH (or set `claude.bin` to an absolute path). MCP comes from `~/.claude.json`. Then:
+
+```bash
+# config: "harness": "claude"
+swift run OpenPaw --claude
+```
+
+Default permission mode is `acceptEdits` (no TTY for Allow taps). Do not set `bypassPermissions` unless you trust every voice prompt.
+
+### Codex CLI
+
+Install `codex` (or set `codex.bin`). MCP comes from `~/.codex/config.toml`.
+
+```bash
+swift run OpenPaw --codex
+```
+
+`--claude` / `--codex` / `--hermes` override `harness` for **that process only**.
 
 ## 4. macOS permissions
 
@@ -117,7 +145,7 @@ Or run the built binary:
 | Hold **Right Option** (default) | Push-to-talk via Gradium STT |
 | Drag cat | Reposition overlay |
 | Right-click cat → **Explain this** | Freeze screen, draw annotation, speak a prompt |
-| Menu bar 🐱 → Cancel session | Stop current Hermes stream |
+| Menu bar 🐱 → Cancel session | Stop current agent stream |
 | Idle timeout | Sleep and clear conversation history |
 
 ## Troubleshooting
@@ -125,6 +153,9 @@ Or run the built binary:
 | Symptom | Fix |
 |---|---|
 | "Add gradium.api_key…" bubble | Set key in `~/.config/open-paw/config.json` or `GRADIUM_API_KEY` |
+| "Add hermes.api_key…" bubble | Set key or switch `harness` to `claude`/`codex` |
+| "`claude` not found" | Install Claude Code or set `claude.bin` |
+| "`codex` not found" | Install Codex CLI or set `codex.bin` |
 | "Invalid API key" from Hermes | Match `hermes.api_key` ↔ `API_SERVER_KEY`; restart gateway |
 | Connection refused on `:8642` | Start Hermes with `API_SERVER_ENABLED=true` |
 | No speech detected | Check mic permission; adjust `gradium.stt.vad_threshold` |
@@ -135,7 +166,7 @@ Or run the built binary:
 ```
 open-paw/
 ├── OpenPaw/          # macOS app (UI, voice, vision, hotkeys)
-├── OpenPawCore/      # Shared library (config, Hermes client, prompts)
+├── OpenPawCore/      # Shared library (config, agent harness, prompts)
 ├── OpenPawTests/     # OpenPawCheck executable tests
 ├── config.example.json # Template — copy to ~/.config/open-paw/
 ├── Package.swift

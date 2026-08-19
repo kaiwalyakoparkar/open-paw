@@ -62,6 +62,18 @@ extension ChatContent: Codable {
     }
 }
 
+extension Array where Element == ChatMessage {
+    public func lastUserText() -> String {
+        guard let msg = reversed().first(where: { $0.role == "user" }) else { return "" }
+        switch msg.content {
+        case .string(let s):
+            return s
+        case .parts(let parts):
+            return parts.compactMap(\.text).joined(separator: "\n")
+        }
+    }
+}
+
 public struct ToolCallDelta: Equatable {
     public var index: Int
     public var id: String?

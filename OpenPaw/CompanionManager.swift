@@ -26,7 +26,7 @@ final class CompanionManager: NSObject {
     private var explainScreenshotURL: URL?
     private var holdMonitor: HoldToTalkMonitor?
     private var idleTimer: Timer?
-    private var hermes: HermesAPIClient?
+    private var agent: AgentHarness?
     private var stt: GradiumSTTClient?
     private var tts: GradiumTTSClient?
     private var capture: AudioCapture?
@@ -90,14 +90,39 @@ final class CompanionManager: NSObject {
             buddy?.setBubble(.error("Grant Accessibility for hold-to-talk — System Settings → Privacy"))
         }
 
-        hermes = HermesAPIClient(config: config.hermes)
+        do {
+            agent = try AgentHarnessFactory.make(config: config)
+        } catch {
+            buddy?.setBubble(.error(error.localizedDescription))
+        }
         tts = GradiumTTSClient(config: config.gradium)
         if config.gradium.apiKey.isEmpty {
             buddy?.setBubble(.error("Add gradium.api_key to ~/.config/open-paw/config.json"))
         }
-        if config.hermes.apiKey.isEmpty {
-            buddy?.setBubble(.error("Add hermes.api_key to ~/.config/open-paw/config.json"))
+        if let msg = harnessSetupError() {
+            buddy?.setBubble(.error(msg))
         }
+    }
+
+    private func harnessSetupError() -> String? {
+        switch config.harness {
+        case .hermes:
+            return config.hermes.apiKey.isEmpty
+                ? "Add hermes.api_key to ~/.config/open-paw/config.json"
+                : nil
+        case .claude, .codex:
+            return nil
+        }
+    }
+
+    private func requireAgent() -> Bool {
+        if agent != nil { return true }
+        if let msg = harnessSetupError() {
+            buddy?.setBubble(.error(msg))
+        } else {
+            buddy?.setBubble(.error("\(config.harness.displayName) not ready"))
+        }
+        return false
     }
 
     /// Tap avatar while active → stop/cancel. Idle tap is no-op.
@@ -173,7 +198,8 @@ final class CompanionManager: NSObject {
         pendingSend = false
         captureStarted = false
         turnLocked = false
-        hermes?.cancel()
+        agent?.cancel()
+        agent?.resetSession()
         tts?.stop()
         capture?.stop()
         stt?.close()
@@ -206,10 +232,7 @@ final class CompanionManager: NSObject {
     func beginAnnotate() {
         guard state == .idle else { return }
         turnLocked = false
-        guard !config.hermes.apiKey.isEmpty else {
-            buddy?.setBubble(.error("Add hermes.api_key to ~/.config/open-paw/config.json"))
-            return
-        }
+        guard requireAgent() else { return }
         dismissOverlay()
         frozenShot = ScreenCapture.mainDisplayImage()
         strokes = []
@@ -255,7 +278,7 @@ final class CompanionManager: NSObject {
         messages.append(ChatMessage(role: "user", content: .parts([.text(prompt)])))
         listeningAnnotate = false
 
-        Task { await runHermes() }
+        Task { await runAgent() }
     }
 
     /// Saves annotated screenshot to a temp file Hermes vision tools can read.
@@ -517,16 +540,16 @@ final class CompanionManager: NSObject {
             messages.append(.text(role: "user", ObsidianNotes.wrap(text)))
         }
 
-        await runHermes()
+        await runAgent()
     }
 
-    private func runHermes() async {
+    private func runAgent() async {
         currentAssistant = ""
         toolNotes = ""
         sentence = SentenceBuffer()
         startWaitProgress()
         do {
-            let result = try await hermes?.stream(
+            let result = try await agent?.stream(
                 messages: messages,
                 onDelta: { [weak self] d in
                     Task { @MainActor in self?.onHermesDelta(d) }
@@ -550,7 +573,7 @@ final class CompanionManager: NSObject {
         } catch {
             await MainActor.run {
                 self.stopWaitProgress()
-                self.buddy?.setBubble(.error("Hermes: \(error.localizedDescription)"))
+                self.buddy?.setBubble(.error("\(self.config.harness.displayName): \(error.localizedDescription)"))
                 self.turnLocked = false
                 self.state = .idle
             }
@@ -603,7 +626,7 @@ final class CompanionManager: NSObject {
         }
         let trimmed = stored.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else {
-            buddy?.setBubble(.error("Hermes returned nothing — check the server at \(config.hermes.baseURL)"))
+            buddy?.setBubble(.error("\(config.harness.displayName) returned nothing"))
             state = .idle
             return
         }
@@ -614,7 +637,7 @@ final class CompanionManager: NSObject {
 
     func bargeIn() {
         stopWaitProgress()
-        hermes?.cancel()
+        agent?.cancel()
         tts?.stop()
         var partial = currentAssistant.trimmingCharacters(in: .whitespacesAndNewlines)
         if !partial.isEmpty {

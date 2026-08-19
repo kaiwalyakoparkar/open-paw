@@ -19,6 +19,16 @@
     "model": "hermes-agent",
     "sse_timeout_seconds": 600
   },
+  "harness": "hermes",
+  "claude": {
+    "bin": "claude",
+    "cwd": "~",
+    "permission_mode": "acceptEdits"
+  },
+  "codex": {
+    "bin": "codex",
+    "cwd": "~"
+  },
   "hotkey": {
     "hold": { "modifiers": [], "key": "right_option" },
     "toggle": { "modifiers": ["control", "option"], "key": "space" }

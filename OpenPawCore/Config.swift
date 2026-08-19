@@ -6,12 +6,43 @@ public struct AppConfig: Codable, Equatable {
     public var hermes: HermesConfig
     public var hotkey: HotkeyConfig
     public var ui: UIConfig
+    public var harness: HarnessKind
+    public var claude: CLIHarnessConfig
+    public var codex: CLIHarnessConfig
 
-    public init(gradium: GradiumConfig, hermes: HermesConfig, hotkey: HotkeyConfig, ui: UIConfig) {
+    public init(
+        gradium: GradiumConfig,
+        hermes: HermesConfig,
+        hotkey: HotkeyConfig,
+        ui: UIConfig,
+        harness: HarnessKind = .hermes,
+        claude: CLIHarnessConfig = .claudeDefault,
+        codex: CLIHarnessConfig = .codexDefault
+    ) {
         self.gradium = gradium
         self.hermes = hermes
         self.hotkey = hotkey
         self.ui = ui
+        self.harness = harness
+        self.claude = claude
+        self.codex = codex
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case gradium, hermes, hotkey, ui, harness, claude, codex
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        gradium = try c.decode(GradiumConfig.self, forKey: .gradium)
+        hermes = try c.decode(HermesConfig.self, forKey: .hermes)
+        hotkey = try c.decode(HotkeyConfig.self, forKey: .hotkey)
+        ui = try c.decode(UIConfig.self, forKey: .ui)
+        harness = try c.decodeIfPresent(HarnessKind.self, forKey: .harness) ?? .hermes
+        claude = (try c.decodeIfPresent(CLIHarnessConfig.self, forKey: .claude) ?? .claudeDefault)
+            .filled(defaultBin: "claude")
+        codex = (try c.decodeIfPresent(CLIHarnessConfig.self, forKey: .codex) ?? .codexDefault)
+            .filled(defaultBin: "codex")
     }
 
     public static func load(from url: URL = defaultURL()) throws -> AppConfig {
@@ -95,6 +126,43 @@ public struct TTSConfig: Codable, Equatable {
     enum CodingKeys: String, CodingKey {
         case voiceId = "voice_id"
         case outputFormat = "output_format"
+    }
+}
+
+public struct CLIHarnessConfig: Codable, Equatable {
+    public var bin: String
+    public var cwd: String
+    public var permissionMode: String
+
+    public static let claudeDefault = CLIHarnessConfig(bin: "claude", cwd: "~", permissionMode: "acceptEdits")
+    public static let codexDefault = CLIHarnessConfig(bin: "codex", cwd: "~", permissionMode: "acceptEdits")
+
+    public init(bin: String, cwd: String, permissionMode: String) {
+        self.bin = bin
+        self.cwd = cwd
+        self.permissionMode = permissionMode
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case bin, cwd
+        case permissionMode = "permission_mode"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        bin = try c.decodeIfPresent(String.self, forKey: .bin) ?? ""
+        cwd = try c.decodeIfPresent(String.self, forKey: .cwd) ?? "~"
+        permissionMode = try c.decodeIfPresent(String.self, forKey: .permissionMode) ?? "acceptEdits"
+    }
+
+    func filled(defaultBin: String) -> CLIHarnessConfig {
+        var copy = self
+        if copy.bin.isEmpty { copy.bin = defaultBin }
+        return copy
+    }
+
+    public var expandedCwd: URL {
+        URL(fileURLWithPath: (cwd as NSString).expandingTildeInPath, isDirectory: true)
     }
 }
 

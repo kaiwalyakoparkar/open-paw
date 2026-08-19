@@ -27,7 +27,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             config = fallbackConfig()
         }
 
-        let manager = CompanionManager(config: config)
+        let manager = CompanionManager(config: applyArgv(config))
         self.manager = manager
         manager.start()
 
@@ -50,6 +50,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @objc private func stop() { manager?.cancelSession() }
     @objc private func annotate() { manager?.beginAnnotate() }
     @objc private func quit() { NSApp.terminate(nil) }
+
+    private func applyArgv(_ config: AppConfig) -> AppConfig {
+        var cfg = config
+        if let flag = HarnessKind.fromArgv(CommandLine.arguments) {
+            cfg.harness = flag
+        }
+        return cfg
+    }
 
     private func fallbackConfig() -> AppConfig {
         AppConfig(
