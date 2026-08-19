@@ -51,6 +51,9 @@ enum BuddyLayoutChecks {
         frameAtAnchorKeepsOrigin()
         fixedSizesAreStable()
         expandThenTextKeepsOrigin()
+        errorUsesStableExpandedSize()
+        dragKeepsFullBubbleOnScreen()
+        listeningHugsInsteadOfWaitFloor()
         print("BuddyLayout OK")
     }
 
@@ -222,5 +225,78 @@ enum BuddyLayoutChecks {
         assert(capped.height == cap, "must not pass the screen ceiling, got \(capped.height)")
         let chrome = BuddyLayout.catInset * 2 + BuddyLayout.spacing + avatar
         assert(capped.height > chrome, "capped window must still leave room for the cat")
+    }
+
+    /// Error must use the same expanded floor as wait — no hug size that later pops bigger.
+    private static func errorUsesStableExpandedSize() {
+        let avatar: CGFloat = 80
+        let msg = "Speech reached mic but STT returned nothing — check network or Gradium key"
+        let previous = BuddyLayout.fixedExpandedSize(avatarSize: avatar)
+        let error = BuddyLayout.expandedWindowSize(
+            bodyHeight: BuddyLayout.bodyHeight(for: msg, fontSize: 11),
+            avatarSize: avatar,
+            maxHeight: 2000
+        )
+        assert(error.width == previous.width)
+        assert(
+            error.height == previous.height,
+            "error must not hug then grow: \(error.height) vs stable \(previous.height)"
+        )
+        let empty = BuddyLayout.expandedWindowSize(
+            bodyHeight: 22,
+            avatarSize: avatar,
+            maxHeight: 2000
+        )
+        assert(empty == previous, "empty error must already be expanded floor, got \(empty)")
+        let collapsed = BuddyLayout.fixedCollapsedSize(avatarSize: avatar)
+        assert(error.width > collapsed.width)
+        assert(error.height > collapsed.height)
+    }
+
+    /// Full-width bubble dragged to a screen edge must stay fully visible.
+    private static func dragKeepsFullBubbleOnScreen() {
+        let visible = CGRect(x: 0, y: 0, width: 1440, height: 900)
+        let size = BuddyLayout.fixedExpandedSize(avatarSize: 80)
+        let startOrigin = CGPoint(x: 800, y: 80)
+        let startMouse = CGPoint(x: 840, y: 120)
+        let pastRight = CGPoint(x: 2000, y: 120)
+        let origin = BuddyLayout.draggedOrigin(
+            startOrigin: startOrigin,
+            startMouse: startMouse,
+            currentMouse: pastRight
+        )
+        let frame = BuddyLayout.placedFrame(origin: origin, size: size, visible: visible)
+        assert(frame.size == size)
+        assert(frame.maxX <= visible.maxX, "right edge must stay on screen, maxX \(frame.maxX)")
+        assert(frame.minX >= visible.minX)
+        assert(frame.minY >= visible.minY)
+        assert(frame.maxY <= visible.maxY)
+    }
+
+    /// Listening is a status line, not the wait bubble — hug so the block isn't 200pt tall.
+    private static func listeningHugsInsteadOfWaitFloor() {
+        let avatar: CGFloat = 80
+        let wait = BuddyLayout.fixedExpandedSize(avatarSize: avatar)
+        let listen = BuddyLayout.expandedWindowSize(
+            bodyHeight: BuddyLayout.bodyHeight(for: ""),
+            avatarSize: avatar,
+            maxHeight: 2000,
+            minPillHeight: 0
+        )
+        assert(listen.width == wait.width)
+        assert(
+            listen.height < wait.height,
+            "listening must be shorter than wait floor: \(listen.height) vs \(wait.height)"
+        )
+        let collapsed = BuddyLayout.fixedCollapsedSize(avatarSize: avatar)
+        assert(listen.height >= collapsed.height)
+        let withTranscript = BuddyLayout.expandedWindowSize(
+            bodyHeight: BuddyLayout.bodyHeight(for: String(repeating: "tomorrow's meetings in IST. ", count: 8)),
+            avatarSize: avatar,
+            maxHeight: 2000,
+            minPillHeight: 0
+        )
+        assert(withTranscript.height > listen.height)
+        assert(withTranscript.height < wait.height)
     }
 }

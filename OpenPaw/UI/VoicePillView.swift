@@ -86,7 +86,7 @@ struct VoicePillView: View {
                 Text(statusLabel)
                     .font(.system(size: labelFontSize, weight: .semibold, design: .rounded))
                     .foregroundStyle(statusColor)
-                Spacer(minLength: 0)
+                Spacer(minLength: 8)
                 if state != .idle {
                     Button(action: onStop) {
                         Text("Stop")
@@ -97,12 +97,22 @@ struct VoicePillView: View {
                             .background(Color.red.opacity(0.75), in: Capsule())
                     }
                     .buttonStyle(.plain)
+                } else if showDismiss {
+                    Button(action: onStop) {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 11, weight: .bold))
+                            .foregroundStyle(.white.opacity(0.9))
+                            .frame(width: 22, height: 22)
+                            .background(Color.black.opacity(0.35), in: Circle())
+                    }
+                    .buttonStyle(.plain)
+                    .help("Dismiss and start fresh next time")
                 }
             }
 
             if !bubble.displayText.isEmpty {
                 let long = bubble.displayText.count > 400
-                let body = Text(bubble.displayText)
+                let body = Text(bubble.displayAttributed)
                     .font(.system(size: bodyFontSize, design: .rounded))
                     .foregroundStyle(.white.opacity(0.95))
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -126,27 +136,18 @@ struct VoicePillView: View {
                     .italic()
             }
         }
-        .padding(.horizontal, isError ? 10 : 16)
-        .padding(.vertical, isError ? 7 : 12)
-        .frame(maxWidth: BuddyLayout.pillMaxWidth, alignment: .topLeading)
-        .fixedSize(horizontal: false, vertical: true)
+        .padding(.horizontal, 16)
+        .padding(.vertical, isError ? 10 : 12)
+        .frame(maxWidth: .infinity, alignment: .topLeading)
+        .frame(maxHeight: hugsListeningHeight ? nil : .infinity, alignment: .topLeading)
+        .fixedSize(horizontal: false, vertical: hugsListeningHeight)
         .background(pillFill, in: RoundedRectangle(cornerRadius: 16))
         .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(pillBorder, lineWidth: 1))
-        .overlay(alignment: .topTrailing) {
-            if showDismiss {
-                Button(action: onStop) {
-                    Image(systemName: "xmark")
-                        .font(.system(size: 13, weight: .bold))
-                        .foregroundStyle(.white.opacity(0.85))
-                        .frame(width: 22, height: 22)
-                        .background(Color.black.opacity(0.45), in: Circle())
-                        .overlay(Circle().strokeBorder(.white.opacity(0.25), lineWidth: 0.5))
-                }
-                .buttonStyle(.plain)
-                .offset(x: 6, y: -6)
-                .help("Dismiss and start fresh next time")
-            }
-        }
+    }
+
+    /// Status row + "Listening…" — don't stretch into the wait-bubble floor.
+    private var hugsListeningHeight: Bool {
+        state == .listening || (state == .idle && isHoldingKey)
     }
 
     @ViewBuilder

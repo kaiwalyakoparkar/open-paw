@@ -72,6 +72,8 @@ final class BuddyWindow: NSPanel {
         isMovableByWindowBackground = false
     }
 
+    override func animationResizeTime(_ newFrame: NSRect) -> TimeInterval { 0 }
+
     override func sendEvent(_ event: NSEvent) {
         if event.type == .leftMouseDown {
             applyDrag(
@@ -129,6 +131,11 @@ final class BuddyWindow: NSPanel {
         model.state != .idle || model.bubble.isVisible || model.isHoldingKey
     }
 
+    /// Listening is one status line — skip the 200pt wait-bubble floor.
+    private var hugsListeningHeight: Bool {
+        model.state == .listening || (model.state == .idle && model.isHoldingKey)
+    }
+
     /// Initial dock placement only. Later resizes keep the cat's bottom-center.
     private func placeOnDock() {
         guard !dragging, let screen = Self.screenWithDock() else { return }
@@ -156,25 +163,17 @@ final class BuddyWindow: NSPanel {
         anchorOrigin = newFrame.origin
     }
 
-    private var usesCompactBubble: Bool {
-        if case .error = model.bubble { return true }
-        return false
-    }
-
     private func targetSize(visible: NSRect) -> CGSize {
         if !isLayoutExpanded {
             return BuddyLayout.fixedCollapsedSize(avatarSize: avatarSize)
         }
         let cap = max(visible.maxY - frame.minY, BuddyLayout.fixedCollapsedSize(avatarSize: avatarSize).height)
-        let compact = usesCompactBubble
-        let fontSize: CGFloat = compact ? 11 : 17
         let text = model.bubble.displayText
         return BuddyLayout.expandedWindowSize(
-            bodyHeight: BuddyLayout.bodyHeight(for: text, fontSize: fontSize),
+            bodyHeight: BuddyLayout.bodyHeight(for: text),
             avatarSize: avatarSize,
             maxHeight: cap,
-            bodyWidth: compact ? BuddyLayout.bodyWidth(for: text, fontSize: fontSize) : nil,
-            compact: compact
+            minPillHeight: hugsListeningHeight ? 0 : BuddyLayout.pillMinHeight
         )
     }
 
@@ -219,17 +218,12 @@ final class BuddyWindow: NSPanel {
         // Above overlay during annotate so Stop / Esc on kitty work; overlay still covers the rest.
         level = state == .idle ? .floating : Self.activeLevel
         orderFrontRegardless()
-        DispatchQueue.main.async { [weak self] in
-            self?.syncLayoutIfNeeded()
-        }
+        syncLayoutIfNeeded()
     }
 
     func setBubble(_ content: BubbleContent) {
         model.bubble = content
-        // Text updates stay in-window. Resize only if expand/collapse flipped.
-        DispatchQueue.main.async { [weak self] in
-            self?.syncLayoutIfNeeded()
-        }
+        syncLayoutIfNeeded()
     }
 
     func setMicLevel(_ level: Float) {
@@ -242,9 +236,7 @@ final class BuddyWindow: NSPanel {
 
     func setHoldingKey(_ holding: Bool) {
         model.isHoldingKey = holding
-        DispatchQueue.main.async { [weak self] in
-            self?.syncLayoutIfNeeded()
-        }
+        syncLayoutIfNeeded()
     }
 
     override func mouseDragged(with event: NSEvent) {
@@ -270,8 +262,18 @@ final class BuddyWindow: NSPanel {
         if hypot(dx, dy) > 3 { dragging = true }
         if dragging {
             userPlaced = true
-            setFrameOrigin(step.frameOrigin)
-            anchorOrigin = step.frameOrigin
+            let origin: NSPoint
+            if let screen = Self.screenWithDock() {
+                origin = BuddyLayout.placedFrame(
+                    origin: step.frameOrigin,
+                    size: frame.size,
+                    visible: screen.visibleFrame
+                ).origin
+            } else {
+                origin = step.frameOrigin
+            }
+            setFrameOrigin(origin)
+            anchorOrigin = origin
         }
     }
 
@@ -280,8 +282,11 @@ final class BuddyWindow: NSPanel {
         if dragging {
             userPlaced = true
             anchorOrigin = frame.origin
+            dragging = false
+            syncLayoutIfNeeded()
             return
         }
+        dragging = false
         let dt = Date().timeIntervalSince(downTime)
         guard dt < 0.3 else { return }
         let p = event.locationInWindow

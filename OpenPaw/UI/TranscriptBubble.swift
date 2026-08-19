@@ -1,3 +1,4 @@
+import OpenPawCore
 import SwiftUI
 
 enum BubbleContent: Equatable {
@@ -12,6 +13,10 @@ enum BubbleContent: Equatable {
         case .none: ""
         case .listening(let s), .processing(let s), .responding(let s), .error(let s): s
         }
+    }
+
+    var displayAttributed: AttributedString {
+        MarkdownDisplay.attributed(displayText)
     }
 
     var isVisible: Bool {
@@ -43,7 +48,7 @@ struct TranscriptBubble: View {
     private var bubbleBody: some View {
         VStack(alignment: .leading, spacing: 4) {
             if !content.displayText.isEmpty {
-                Text(content.displayText)
+                Text(content.displayAttributed)
                     .font(.system(size: 11, design: .rounded))
                     .foregroundStyle(textColor)
                     .fixedSize(horizontal: false, vertical: true)

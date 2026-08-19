@@ -12,6 +12,7 @@ enum CheckMain {
         AnnotatePromptChecks.run()
         HermesSystemPromptChecks.run()
         HermesReplyFilterChecks.run()
+        MarkdownDisplayChecks.run()
         HermesHTTPErrorChecks.run()
         ObsidianNotesChecks.run()
         HarnessKindChecks.run()
