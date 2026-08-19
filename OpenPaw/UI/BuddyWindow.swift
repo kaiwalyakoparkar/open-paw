@@ -131,9 +131,10 @@ final class BuddyWindow: NSPanel {
         model.state != .idle || model.bubble.isVisible || model.isHoldingKey
     }
 
-    /// Listening is one status line — skip the 200pt wait-bubble floor.
+    /// Listening / annotate are status bars — skip the 200pt wait-bubble floor.
     private var hugsListeningHeight: Bool {
-        model.state == .listening || (model.state == .idle && model.isHoldingKey)
+        model.state == .listening || model.state == .annotate
+            || (model.state == .idle && model.isHoldingKey)
     }
 
     /// Initial dock placement only. Later resizes keep the cat's bottom-center.
@@ -168,9 +169,9 @@ final class BuddyWindow: NSPanel {
             return BuddyLayout.fixedCollapsedSize(avatarSize: avatarSize)
         }
         let cap = max(visible.maxY - frame.minY, BuddyLayout.fixedCollapsedSize(avatarSize: avatarSize).height)
-        let text = model.bubble.displayText
+        let annotate = model.state == .annotate
         return BuddyLayout.expandedWindowSize(
-            bodyHeight: BuddyLayout.bodyHeight(for: text),
+            bodyHeight: annotate ? BuddyLayout.annotateDoneExtra : BuddyLayout.bodyHeight(for: model.bubble.displayText),
             avatarSize: avatarSize,
             maxHeight: cap,
             minPillHeight: hugsListeningHeight ? 0 : BuddyLayout.pillMinHeight

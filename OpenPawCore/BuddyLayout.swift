@@ -12,6 +12,8 @@ public enum BuddyLayout {
     public static let pillMinHeight: CGFloat = 200
     /// Capsule row (~28pt) plus slack so bottoms aren't clipped into the cat.
     public static let collapsedPillHeight: CGFloat = 52
+    /// Done chip above the compact annotate bar (button + gap). Window only — pill hugs.
+    public static let annotateDoneExtra: CGFloat = 56
     /// Explain + Hold ⌥ side-by-side; 160pt clipped "Hold ⌥" to a caret.
     public static let collapsedMinWidth: CGFloat = 240
 

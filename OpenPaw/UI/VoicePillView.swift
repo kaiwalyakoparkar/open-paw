@@ -145,9 +145,9 @@ struct VoicePillView: View {
         .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(pillBorder, lineWidth: 1))
     }
 
-    /// Status row + "Listening…" — don't stretch into the wait-bubble floor.
+    /// Status row only — don't stretch into the wait-bubble floor.
     private var hugsListeningHeight: Bool {
-        state == .listening || (state == .idle && isHoldingKey)
+        state == .listening || state == .annotate || (state == .idle && isHoldingKey)
     }
 
     @ViewBuilder

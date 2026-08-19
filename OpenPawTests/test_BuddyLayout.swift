@@ -54,6 +54,7 @@ enum BuddyLayoutChecks {
         errorUsesStableExpandedSize()
         dragKeepsFullBubbleOnScreen()
         listeningHugsInsteadOfWaitFloor()
+        annotateHugsInsteadOfWaitFloor()
         print("BuddyLayout OK")
     }
 
@@ -298,5 +299,34 @@ enum BuddyLayoutChecks {
         )
         assert(withTranscript.height > listen.height)
         assert(withTranscript.height < wait.height)
+    }
+
+    /// Annotate is a status bar + Done chip — hug, don't keep the empty 200pt purple body.
+    private static func annotateHugsInsteadOfWaitFloor() {
+        let avatar: CGFloat = 80
+        let wait = BuddyLayout.fixedExpandedSize(avatarSize: avatar)
+        let annotate = BuddyLayout.expandedWindowSize(
+            bodyHeight: BuddyLayout.annotateDoneExtra,
+            avatarSize: avatar,
+            maxHeight: 2000,
+            minPillHeight: 0
+        )
+        assert(annotate.width == wait.width)
+        assert(
+            annotate.height < wait.height,
+            "annotate must be shorter than wait floor: \(annotate.height) vs \(wait.height)"
+        )
+        let listen = BuddyLayout.expandedWindowSize(
+            bodyHeight: BuddyLayout.bodyHeight(for: ""),
+            avatarSize: avatar,
+            maxHeight: 2000,
+            minPillHeight: 0
+        )
+        assert(
+            annotate.height > listen.height,
+            "Done chip needs room above compact bar: \(annotate.height) vs listen \(listen.height)"
+        )
+        let collapsed = BuddyLayout.fixedCollapsedSize(avatarSize: avatar)
+        assert(annotate.height >= collapsed.height)
     }
 }
