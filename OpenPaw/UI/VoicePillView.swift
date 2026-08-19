@@ -15,6 +15,14 @@ struct VoicePillView: View {
         return false
     }
 
+    private var isError: Bool {
+        if case .error = bubble { return true }
+        return false
+    }
+
+    private var bodyFontSize: CGFloat { isError ? 11 : 17 }
+    private var labelFontSize: CGFloat { isError ? 13 : 15 }
+
     private var isExpanded: Bool {
         isHoldingKey || state != .idle || bubble.isVisible
     }
@@ -76,7 +84,7 @@ struct VoicePillView: View {
                     WaveformBars(level: micLevel)
                 }
                 Text(statusLabel)
-                    .font(.system(size: 15, weight: .semibold, design: .rounded))
+                    .font(.system(size: labelFontSize, weight: .semibold, design: .rounded))
                     .foregroundStyle(statusColor)
                 Spacer(minLength: 0)
                 if state != .idle {
@@ -93,29 +101,35 @@ struct VoicePillView: View {
             }
 
             if !bubble.displayText.isEmpty {
-                ScrollView(.vertical, showsIndicators: true) {
-                    Text(bubble.displayText)
-                        .font(.system(size: 17, design: .rounded))
-                        .foregroundStyle(.white.opacity(0.95))
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .textSelection(.enabled)
+                let long = bubble.displayText.count > 400
+                let body = Text(bubble.displayText)
+                    .font(.system(size: bodyFontSize, design: .rounded))
+                    .foregroundStyle(.white.opacity(0.95))
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .textSelection(.enabled)
+                if long {
+                    ScrollView(.vertical, showsIndicators: true) { body }
+                        .frame(maxHeight: 220, alignment: .top)
+                } else {
+                    body
                 }
-                .frame(maxHeight: .infinity, alignment: .top)
             } else if state == .listening || isHoldingKey {
                 Text(micLevel > 0.02 ? "Transcribing…" : "Listening…")
-                    .font(.system(size: 17, design: .rounded))
+                    .font(.system(size: bodyFontSize, design: .rounded))
                     .foregroundStyle(.white.opacity(0.55))
                     .italic()
             } else if state == .thinking || isProcessing {
                 Text("Processing your request…")
-                    .font(.system(size: 17, design: .rounded))
+                    .font(.system(size: bodyFontSize, design: .rounded))
                     .foregroundStyle(.white.opacity(0.75))
                     .italic()
             }
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 12)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .padding(.horizontal, isError ? 10 : 16)
+        .padding(.vertical, isError ? 7 : 12)
+        .frame(maxWidth: BuddyLayout.pillMaxWidth, alignment: .topLeading)
+        .fixedSize(horizontal: false, vertical: true)
         .background(pillFill, in: RoundedRectangle(cornerRadius: 16))
         .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(pillBorder, lineWidth: 1))
         .overlay(alignment: .topTrailing) {

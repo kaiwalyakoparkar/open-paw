@@ -52,15 +52,41 @@ public enum BuddyLayout {
     public static func expandedWindowSize(
         bodyHeight: CGFloat,
         avatarSize: CGFloat,
-        maxHeight: CGFloat
+        maxHeight: CGFloat,
+        bodyWidth: CGFloat? = nil,
+        compact: Bool = false
     ) -> CGSize {
         let chrome = catInset * 2 + spacing + avatarSize
-        let pillH = max(pillMinHeight, 36 + 24 + bodyHeight)
+        let header: CGFloat = 36 + 24
+        let pillH = compact ? (header + bodyHeight) : max(pillMinHeight, header + bodyHeight)
+        let pillW: CGFloat
+        if compact {
+            let contentW = bodyWidth.map { $0 + 32 } ?? pillMinWidth
+            pillW = min(pillMaxWidth, max(pillMinWidth, contentW))
+        } else {
+            pillW = pillMaxWidth
+        }
         let height = min(chrome + pillH, maxHeight)
         return CGSize(
-            width: catInset * 2 + pillMaxWidth,
+            width: catInset * 2 + pillW,
             height: max(height, chrome + collapsedPillHeight)
         )
+    }
+
+    /// Wrapped text width at pill body font size.
+    public static func bodyWidth(for text: String, fontSize: CGFloat = 17) -> CGFloat {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return pillMinWidth }
+        let font = CTFontCreateUIFontForLanguage(.system, fontSize, nil)
+            ?? CTFontCreateWithName("Helvetica" as CFString, fontSize, nil)
+        let attr = NSMutableAttributedString(string: trimmed)
+        attr.addAttribute(
+            kCTFontAttributeName as NSAttributedString.Key,
+            value: font,
+            range: NSRange(location: 0, length: attr.length)
+        )
+        let line = CTLineCreateWithAttributedString(attr)
+        return ceil(CTLineGetTypographicBounds(line, nil, nil, nil))
     }
 
     /// Ideal wrapped height for the bubble body at pill width.

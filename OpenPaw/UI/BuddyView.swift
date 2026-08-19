@@ -34,7 +34,6 @@ struct BuddyView: View {
                     onStop: onStop,
                     onAnnotate: onAnnotate
                 )
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
                 Color.clear.frame(width: size, height: size)
             }
             catSlot

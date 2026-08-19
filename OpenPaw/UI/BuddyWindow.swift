@@ -156,15 +156,25 @@ final class BuddyWindow: NSPanel {
         anchorOrigin = newFrame.origin
     }
 
+    private var usesCompactBubble: Bool {
+        if case .error = model.bubble { return true }
+        return false
+    }
+
     private func targetSize(visible: NSRect) -> CGSize {
         if !isLayoutExpanded {
             return BuddyLayout.fixedCollapsedSize(avatarSize: avatarSize)
         }
         let cap = max(visible.maxY - frame.minY, BuddyLayout.fixedCollapsedSize(avatarSize: avatarSize).height)
+        let compact = usesCompactBubble
+        let fontSize: CGFloat = compact ? 11 : 17
+        let text = model.bubble.displayText
         return BuddyLayout.expandedWindowSize(
-            bodyHeight: BuddyLayout.bodyHeight(for: model.bubble.displayText),
+            bodyHeight: BuddyLayout.bodyHeight(for: text, fontSize: fontSize),
             avatarSize: avatarSize,
-            maxHeight: cap
+            maxHeight: cap,
+            bodyWidth: compact ? BuddyLayout.bodyWidth(for: text, fontSize: fontSize) : nil,
+            compact: compact
         )
     }
 
