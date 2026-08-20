@@ -2,6 +2,7 @@ import Foundation
 
 public enum HoldKeyKind: Equatable {
     case modifierOnly(keyCode: UInt16)
+    case modifierChord(carbonModifiers: UInt32)
     case keyCombo(carbonModifiers: UInt32, keyCode: UInt16)
 }
 
@@ -16,6 +17,13 @@ public enum HotkeyKeyMap {
             return .modifierOnly(keyCode: 58)
         case "fn", "function", "globe":
             return .modifierOnly(keyCode: 63)
+        case "", "option", "alt":
+            var names = combo.modifiers
+            if combo.key.lowercased() == "option" || combo.key.lowercased() == "alt" {
+                names.append("option")
+            }
+            let mods = carbonModifiers(from: names)
+            return mods == 0 ? nil : .modifierChord(carbonModifiers: mods)
         default:
             guard let vk = virtualKeyCode(for: combo.key) else { return nil }
             return .keyCombo(carbonModifiers: carbonModifiers(from: combo.modifiers), keyCode: UInt16(vk))
@@ -39,7 +47,14 @@ public enum HotkeyKeyMap {
                 default: break
                 }
             }
-            parts.append(combo.key.uppercased())
+            switch combo.key.lowercased() {
+            case "option", "alt":
+                if !parts.contains("⌥") { parts.append("⌥") }
+            case "":
+                break
+            default:
+                parts.append(combo.key.uppercased())
+            }
             return parts.joined()
         }
     }

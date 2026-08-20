@@ -61,7 +61,7 @@ final class HoldToTalkMonitor {
         switch kind {
         case .keyCombo(let mods, let keyCode):
             registerCarbon(mods: mods, keyCode: keyCode)
-        case .modifierOnly:
+        case .modifierOnly, .modifierChord:
             registerNSEvent()
         }
     }
@@ -138,6 +138,9 @@ final class HoldToTalkMonitor {
             guard event.type == .flagsChanged else { return }
             guard HotkeyKeyMap.modifierHoldEventApplies(eventKeyCode: event.keyCode, configured: keyCode) else { return }
             updateHold(HotkeyKeyMap.modifierHoldIsDown(keyCode: keyCode, nsEventFlags: NSEvent.modifierFlags.rawValue))
+        case .modifierChord(let mods):
+            guard event.type == .flagsChanged else { return }
+            updateHold(HotkeyKeyMap.nsEventModifiersMatch(NSEvent.modifierFlags.rawValue, requiredCarbon: mods))
         case .keyCombo(let mods, let keyCode):
             guard event.keyCode == keyCode, !event.isARepeat else { return }
             switch event.type {

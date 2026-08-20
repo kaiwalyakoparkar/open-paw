@@ -31,7 +31,7 @@
   },
   "hotkey": {
     "hold": { "modifiers": [], "key": "right_option" },
-    "toggle": { "modifiers": ["control", "option"], "key": "space" }
+    "toggle": { "modifiers": ["control", "option"], "key": "option" }
   },
   "ui": {
     "buddy_size": 80,

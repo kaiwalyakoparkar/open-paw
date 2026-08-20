@@ -49,7 +49,7 @@ Edit `~/.config/open-paw/config.json`:
 | `claude.cwd` / `codex.cwd` | No | Working directory (`~` default). MCP/CLAUDE.md follow this |
 | `claude.permission_mode` | No | Default `acceptEdits`. `bypassPermissions` is YOLO |
 | `hotkey.hold` | No | Default: hold **Right Option** to talk |
-| `hotkey.toggle` | No | Default: **Control+Option+Space** wake/sleep |
+| `hotkey.toggle` | No | Default: **Control+Option** wake/sleep |
 | `ui.idle_timeout_seconds` | No | Auto-sleep after idle (default 300) |
 
 **Environment fallback:** empty `api_key` fields fall back to `GRADIUM_API_KEY` and `HERMES_API_KEY`. This works when launching from a terminal; Finder / Dock launches do **not** inherit shell env.
@@ -141,7 +141,7 @@ Or run the built binary:
 
 | Action | Result |
 |---|---|
-| Tap cat (short click) or **Control+Option+Space** | Wake / sleep |
+| Tap cat (short click) or **Control+Option** | Wake / sleep |
 | Hold **Right Option** (default) | Push-to-talk via Gradium STT |
 | Drag cat | Reposition overlay |
 | Right-click cat → **Explain this** | Freeze screen, draw annotation, speak a prompt |

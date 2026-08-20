@@ -28,6 +28,14 @@ enum HotkeyKeyMapChecks {
         } else {
             assertionFailure("expected keyCombo for control+option+space")
         }
+
+        let chord = HotkeyKeyMap.holdKeyKind(for: KeyCombo(modifiers: ["control", "option"], key: "option"))
+        if case .modifierChord(let mods) = chord {
+            assert(mods == required)
+        } else {
+            assertionFailure("expected modifierChord for control+option")
+        }
+        assert(HotkeyKeyMap.displayLabel(for: KeyCombo(modifiers: ["control", "option"], key: "option")) == "⌃⌥")
         print("HotkeyKeyMap OK")
     }
 }

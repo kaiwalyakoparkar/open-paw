@@ -65,7 +65,7 @@ On first launch, grant **Microphone** and **Screen Recording** when macOS prompt
 
 Then:
 
-- **Tap the cat** or press **Control+Option+Space** to wake / sleep
+- **Tap the cat** or press **Control+Option** to wake / sleep
 - **Hold Right Option** (default) for push-to-talk
 - **Right-click the cat → Explain this** to freeze the screen, draw a circle or rectangle, and speak a prompt
 

@@ -80,7 +80,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             ),
             hotkey: HotkeyConfig(
                 hold: KeyCombo(modifiers: [], key: "right_option"),
-                toggle: KeyCombo(modifiers: ["control", "option"], key: "space")
+                toggle: KeyCombo(modifiers: ["control", "option"], key: "option")
             ),
             ui: UIConfig(buddySize: 80, defaultPosition: "bottom-right", idleTimeoutSeconds: 300)
         )
