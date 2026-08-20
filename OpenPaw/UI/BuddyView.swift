@@ -9,6 +9,7 @@ final class BuddyViewModel: ObservableObject {
     @Published var isHoldingKey: Bool = false
     @Published var holdKeyLabel: String = "⌥"
     @Published var annotateHasStrokes = false
+    @Published var annotateListening = false
 }
 
 struct BuddyView: View {
@@ -16,13 +17,14 @@ struct BuddyView: View {
     var size: CGFloat
     var onStop: () -> Void
     var onAnnotate: () -> Void
+    var onAskAnnotate: () -> Void
     var onFinishAnnotate: () -> Void
 
     var body: some View {
         ZStack(alignment: .bottom) {
             VStack(spacing: BuddyLayout.spacing) {
                 if model.state == .annotate {
-                    annotateDoneButton
+                    annotateButtons
                         .padding(.bottom, 10)
                 }
                 VoicePillView(
@@ -31,6 +33,7 @@ struct BuddyView: View {
                     micLevel: model.micLevel,
                     isHoldingKey: model.isHoldingKey,
                     holdKeyLabel: model.holdKeyLabel,
+                    annotateListening: model.annotateListening,
                     onStop: onStop,
                     onAnnotate: onAnnotate
                 )
@@ -55,17 +58,45 @@ struct BuddyView: View {
             }
             .layoutPriority(1)
             .fixedSize()
-            .shadow(color: ringGlow, radius: model.state == .listening ? 8 : 0)
+            .shadow(color: ringGlow, radius: (model.state == .listening || model.annotateListening) ? 8 : 0)
             .contentShape(Rectangle())
             .help(model.state == .idle ? "Explain this part of the screen" : "")
     }
 
     private var ringGlow: Color {
-        switch model.state {
-        case .listening: .green.opacity(0.45)
-        case .thinking: .orange.opacity(0.35)
-        default: .clear
+        if model.annotateListening || model.state == .listening { return .green.opacity(0.45) }
+        if model.state == .thinking { return .orange.opacity(0.35) }
+        return .clear
+    }
+
+    private var annotateButtons: some View {
+        HStack(spacing: 8) {
+            if !model.annotateListening {
+                annotateAskButton
+            }
+            annotateDoneButton
         }
+        .opacity(model.annotateHasStrokes ? 1 : 0.4)
+        .disabled(!model.annotateHasStrokes)
+        .animation(.easeInOut(duration: 0.2), value: model.annotateHasStrokes)
+        .animation(.easeInOut(duration: 0.2), value: model.annotateListening)
+    }
+
+    private var annotateAskButton: some View {
+        Button(action: onAskAnnotate) {
+            HStack(spacing: 6) {
+                Image(systemName: "mic.fill")
+                    .font(.system(size: 11, weight: .bold))
+                Text("Ask")
+                    .font(.system(size: 13, weight: .semibold, design: .rounded))
+            }
+            .foregroundStyle(.white.opacity(0.92))
+            .padding(.horizontal, 22)
+            .padding(.vertical, 10)
+            .background(Color.white.opacity(0.12), in: Capsule())
+            .overlay(Capsule().strokeBorder(.white.opacity(0.28), lineWidth: 1))
+        }
+        .buttonStyle(.plain)
     }
 
     private var annotateDoneButton: some View {
@@ -93,9 +124,6 @@ struct BuddyView: View {
             .shadow(color: Color.purple.opacity(0.5), radius: 12, y: 4)
         }
         .buttonStyle(.plain)
-        .opacity(model.annotateHasStrokes ? 1 : 0.4)
-        .disabled(!model.annotateHasStrokes)
-        .animation(.easeInOut(duration: 0.2), value: model.annotateHasStrokes)
     }
 }
 

@@ -12,6 +12,12 @@ public enum AnnotatePrompt {
     A few sentences of explanation only. No Todo, plan, checklist, or restatement of these instructions.
     """
 
+    /// Empty / whitespace → silent explain (`nil`). Else the spoken Ask line.
+    public static func spokenOrNil(_ transcript: String) -> String? {
+        let t = transcript.trimmingCharacters(in: .whitespacesAndNewlines)
+        return t.isEmpty ? nil : t
+    }
+
     public static func userText(spoken: String? = nil, screenshotPath: String? = nil) -> String {
         var blocks = [instruction]
         if let screenshotPath, !screenshotPath.isEmpty {

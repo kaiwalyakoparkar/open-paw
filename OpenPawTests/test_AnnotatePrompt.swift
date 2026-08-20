@@ -14,6 +14,10 @@ enum AnnotatePromptChecks {
         assert(!silent.contains("1–2 short lines") && !silent.contains("1-2 short lines"), silent)
         assert(!silent.contains("User:"), silent)
 
+        assert(AnnotatePrompt.spokenOrNil("") == nil)
+        assert(AnnotatePrompt.spokenOrNil("   ") == nil)
+        assert(AnnotatePrompt.spokenOrNil("what is this pin") == "what is this pin")
+
         let spoken = AnnotatePrompt.userText(spoken: "what's the price")
         assert(spoken.hasPrefix(silent), spoken)
         assert(spoken.contains("what's the price"), spoken)

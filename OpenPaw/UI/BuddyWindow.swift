@@ -8,6 +8,7 @@ final class BuddyWindow: NSPanel {
     private let onStop: () -> Void
     private let onSend: () -> Void
     private let onAnnotate: () -> Void
+    private let onAskAnnotate: () -> Void
     private let onFinishAnnotate: () -> Void
     private let hosting: NSHostingView<BuddyView>
     private var model: BuddyViewModel
@@ -31,6 +32,7 @@ final class BuddyWindow: NSPanel {
         onStop: @escaping () -> Void,
         onSend: @escaping () -> Void,
         onAnnotate: @escaping () -> Void,
+        onAskAnnotate: @escaping () -> Void,
         onFinishAnnotate: @escaping () -> Void
     ) {
         self.avatarSize = size
@@ -38,6 +40,7 @@ final class BuddyWindow: NSPanel {
         self.onStop = onStop
         self.onSend = onSend
         self.onAnnotate = onAnnotate
+        self.onAskAnnotate = onAskAnnotate
         self.onFinishAnnotate = onFinishAnnotate
         let model = BuddyViewModel()
         model.holdKeyLabel = holdKeyLabel
@@ -47,6 +50,7 @@ final class BuddyWindow: NSPanel {
             size: avatarSize,
             onStop: onStop,
             onAnnotate: onAnnotate,
+            onAskAnnotate: onAskAnnotate,
             onFinishAnnotate: onFinishAnnotate
         )
         hosting = NSHostingView(rootView: view)
@@ -170,8 +174,13 @@ final class BuddyWindow: NSPanel {
         }
         let cap = max(visible.maxY - frame.minY, BuddyLayout.fixedCollapsedSize(avatarSize: avatarSize).height)
         let annotate = model.state == .annotate
+        let askBody = (annotate && model.annotateListening)
+            ? BuddyLayout.bodyHeight(for: model.bubble.displayText)
+            : 0
         return BuddyLayout.expandedWindowSize(
-            bodyHeight: annotate ? BuddyLayout.annotateDoneExtra : BuddyLayout.bodyHeight(for: model.bubble.displayText),
+            bodyHeight: annotate
+                ? BuddyLayout.annotateDoneExtra + askBody
+                : BuddyLayout.bodyHeight(for: model.bubble.displayText),
             avatarSize: avatarSize,
             maxHeight: cap,
             minPillHeight: hugsListeningHeight ? 0 : BuddyLayout.pillMinHeight
@@ -215,7 +224,10 @@ final class BuddyWindow: NSPanel {
 
     func setState(_ state: BuddyState) {
         model.state = state
-        if state != .annotate { model.annotateHasStrokes = false }
+        if state != .annotate {
+            model.annotateHasStrokes = false
+            model.annotateListening = false
+        }
         // Above overlay during annotate so Stop / Esc on kitty work; overlay still covers the rest.
         level = state == .idle ? .floating : Self.activeLevel
         orderFrontRegardless()
@@ -233,6 +245,11 @@ final class BuddyWindow: NSPanel {
 
     func setAnnotateHasStrokes(_ hasStrokes: Bool) {
         model.annotateHasStrokes = hasStrokes
+    }
+
+    func setAnnotateListening(_ listening: Bool) {
+        model.annotateListening = listening
+        syncLayoutIfNeeded()
     }
 
     func setHoldingKey(_ holding: Bool) {

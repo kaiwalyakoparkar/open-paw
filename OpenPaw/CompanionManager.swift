@@ -69,6 +69,7 @@ final class CompanionManager: NSObject {
             onStop: { [weak self] in self?.cancelSession() },
             onSend: { [weak self] in self?.sendSpeech() },
             onAnnotate: { [weak self] in self?.beginAnnotate() },
+            onAskAnnotate: { [weak self] in self?.beginAskAnnotate() },
             onFinishAnnotate: { [weak self] in self?.finishAnnotate() }
         )
         win.place(position: config.ui.defaultPosition)
@@ -237,6 +238,7 @@ final class CompanionManager: NSObject {
         frozenShot = ScreenCapture.mainDisplayImage()
         strokes = []
         buddy?.setAnnotateHasStrokes(false)
+        buddy?.setAnnotateListening(false)
         let ov = AnnotationOverlayWindow(
             onStroke: { [weak self] stroke in
                 self?.strokes.append(stroke)
@@ -244,7 +246,9 @@ final class CompanionManager: NSObject {
             },
             onUndo: { [weak self] in
                 _ = self?.strokes.popLast()
-                self?.buddy?.setAnnotateHasStrokes(!(self?.strokes.isEmpty ?? true))
+                let has = !(self?.strokes.isEmpty ?? true)
+                self?.buddy?.setAnnotateHasStrokes(has)
+                if !has { self?.stopAnnotateAsk() }
             },
             onFinishShape: { [weak self] in
                 self?.finishAnnotate()
@@ -259,24 +263,62 @@ final class CompanionManager: NSObject {
         state = .annotate
     }
 
+    private func beginAskAnnotate() {
+        guard state == .annotate, !strokes.isEmpty, !listeningAnnotate else { return }
+        guard !config.gradium.apiKey.isEmpty else {
+            buddy?.setBubble(.error("Missing Gradium API key — edit ~/.config/open-paw/config.json"))
+            return
+        }
+        buddy?.setAnnotateListening(true)
+        buddy?.setBubble(.listening(""))
+        startListening(annotate: true)
+    }
+
+    /// Stop Ask mic but keep the overlay. Used when undo clears all strokes.
+    private func stopAnnotateAsk() {
+        listenTask?.cancel()
+        micDecayTask?.cancel()
+        capture?.stop()
+        stt?.close()
+        stt = nil
+        listeningAnnotate = false
+        latestTranscript = ""
+        micLevel = 0
+        peakMicLevel = 0
+        buddy?.setMicLevel(0)
+        buddy?.setAnnotateListening(false)
+        if state == .annotate { buddy?.setBubble(.none) }
+    }
+
     private func finishAnnotate() {
         guard state == .annotate else { return }
+        let spoken = AnnotatePrompt.spokenOrNil(
+            STTCommit.mergeTranscript(latestTranscript, buddy?.currentTranscript ?? "")
+        )
+        listenTask?.cancel()
+        micDecayTask?.cancel()
+        capture?.stop()
+        stt?.close()
+        stt = nil
+        listeningAnnotate = false
+        buddy?.setAnnotateListening(false)
+
         turnLocked = true
         dismissOverlay()
-        let prompt = annotatePrompt(spoken: nil)
+        let prompt = annotatePrompt(spoken: spoken)
         guard explainScreenshotURL != nil else {
             turnLocked = false
             buddy?.setBubble(.error("Couldn't save screenshot — check Screen Recording permission"))
             state = .idle
             return
         }
-        buddy?.setBubble(.processing("Explain this"))
-        spokenPrompt = "Explain this"
+        let label = spoken ?? "Explain this"
+        buddy?.setBubble(.processing(label))
+        spokenPrompt = label
         waitStatus = ""
         state = .thinking
 
         messages.append(ChatMessage(role: "user", content: .parts([.text(prompt)])))
-        listeningAnnotate = false
 
         Task { await runAgent() }
     }
@@ -344,6 +386,14 @@ final class CompanionManager: NSObject {
         do {
             let micOK = await Self.requestMicAccess()
             guard micOK else {
+                if annotate {
+                    await MainActor.run {
+                        self.listeningAnnotate = false
+                        self.buddy?.setAnnotateListening(false)
+                        self.buddy?.setBubble(.error("Microphone access denied — enable in System Settings → Privacy"))
+                    }
+                    return
+                }
                 buddy?.setBubble(.error("Microphone access denied — enable in System Settings → Privacy"))
                 isHoldingKey = false
                 turnLocked = false
@@ -359,7 +409,8 @@ final class CompanionManager: NSObject {
                 Task { @MainActor in
                     if self.state == .speaking, rms > 0.08, self.currentAssistant.count >= 24 {
                         self.bargeIn()
-                    } else if self.state == .listening || self.state == .thinking {
+                    } else if self.state == .listening || self.state == .thinking
+                        || (self.state == .annotate && self.listeningAnnotate) {
                         let boosted = min(rms * 8, 1)
                         self.micLevel = max(boosted, self.micLevel * 0.85)
                         self.peakMicLevel = max(self.peakMicLevel, self.micLevel)
@@ -383,12 +434,18 @@ final class CompanionManager: NSObject {
             for await msg in client.messages {
                 if Task.isCancelled { break }
                 await MainActor.run {
-                    self.handleSTT(msg, annotate: annotate)
+                    self.handleSTT(msg)
                 }
             }
         } catch {
             NSLog("open-paw listen: %@", error.localizedDescription)
             await MainActor.run {
+                if annotate {
+                    self.listeningAnnotate = false
+                    self.buddy?.setAnnotateListening(false)
+                    self.buddy?.setBubble(.error("Mic/STT error: \(error.localizedDescription)"))
+                    return
+                }
                 self.isHoldingKey = false
                 self.buddy?.setBubble(.error("Mic/STT error: \(error.localizedDescription)"))
                 self.buddy?.setHoldingKey(false)
@@ -398,27 +455,24 @@ final class CompanionManager: NSObject {
         }
     }
 
-    private func handleSTT(_ msg: GradiumSTTClient.Message, annotate: Bool) {
+    private func handleSTT(_ msg: GradiumSTTClient.Message) {
         switch msg {
         case .text(let t):
             latestTranscript = STTCommit.mergeTranscript(latestTranscript, t)
-            if state == .listening || state == .thinking {
+            if state == .annotate {
+                buddy?.setBubble(.listening(latestTranscript))
+            } else if state == .listening || state == .thinking {
                 buddy?.setBubble(state == .thinking ? .processing(latestTranscript) : .listening(latestTranscript))
             }
         case .vad(let arr):
-            if listeningAnnotate, vad.ingest(vad: arr) {
-                let final = STTCommit.mergeTranscript(latestTranscript, buddy?.currentTranscript ?? "")
-                if !final.isEmpty { latestTranscript = final }
-                buddy?.setBubble(.processing(final))
-                state = .thinking
-                flushSTT()
-                applySTTCommit(.userReleased)
-            } else {
-                _ = vad.ingest(vad: arr)
-            }
+            _ = vad.ingest(vad: arr)
         case .endText(let t):
             latestTranscript = STTCommit.mergeTranscript(latestTranscript, t)
             let final = latestTranscript
+            if state == .annotate {
+                buddy?.setBubble(.listening(final))
+                return
+            }
             // Hold-to-talk: Gradium may end an utterance on silence while key still held.
             guard !isHoldingKey else {
                 if state == .listening {
@@ -433,6 +487,12 @@ final class CompanionManager: NSObject {
             guard state == .thinking else { return }
             applySTTCommit(.flushed)
         case .error(let message):
+            if state == .annotate {
+                listeningAnnotate = false
+                buddy?.setAnnotateListening(false)
+                buddy?.setBubble(.error(message))
+                return
+            }
             isHoldingKey = false
             buddy?.setBubble(.error(message))
             turnLocked = false

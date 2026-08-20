@@ -7,8 +7,11 @@ struct VoicePillView: View {
     var micLevel: Float
     var isHoldingKey: Bool
     var holdKeyLabel: String
+    var annotateListening: Bool = false
     var onStop: () -> Void
     var onAnnotate: () -> Void
+
+    private var isAskListening: Bool { annotateListening }
 
     private var isProcessing: Bool {
         if case .processing = bubble { return true }
@@ -80,7 +83,7 @@ struct VoicePillView: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 8) {
                 statusIcon
-                if state == .listening || isHoldingKey {
+                if state == .listening || isHoldingKey || isAskListening {
                     WaveformBars(level: micLevel)
                 }
                 Text(statusLabel)
@@ -124,7 +127,7 @@ struct VoicePillView: View {
                 } else {
                     body
                 }
-            } else if state == .listening || isHoldingKey {
+            } else if state == .listening || isHoldingKey || isAskListening {
                 Text(micLevel > 0.02 ? "Transcribing…" : "Listening…")
                     .font(.system(size: bodyFontSize, design: .rounded))
                     .foregroundStyle(.white.opacity(0.55))
@@ -167,9 +170,16 @@ struct VoicePillView: View {
                 .font(.system(size: 13, weight: .bold))
                 .foregroundStyle(.blue)
         case .annotate:
-            Image(systemName: "pencil.tip.crop.circle")
-                .font(.system(size: 13, weight: .bold))
-                .foregroundStyle(.purple)
+            if isAskListening {
+                Image(systemName: "mic.fill")
+                    .font(.system(size: 13, weight: .bold))
+                    .foregroundStyle(.green)
+                    .symbolEffect(.pulse, isActive: micLevel > 0.02)
+            } else {
+                Image(systemName: "pencil.tip.crop.circle")
+                    .font(.system(size: 13, weight: .bold))
+                    .foregroundStyle(.purple)
+            }
         default:
             if case .error = bubble {
                 Image(systemName: "exclamationmark.triangle.fill")
@@ -188,7 +198,7 @@ struct VoicePillView: View {
         case .listening: return isHoldingKey ? "Recording" : "Listening"
         case .thinking: return "Thinking…"
         case .speaking: return "Speaking"
-        case .annotate: return "Draw on screen"
+        case .annotate: return isAskListening ? "Listening" : "Draw on screen"
         }
     }
 
@@ -197,7 +207,7 @@ struct VoicePillView: View {
         case .listening: .green
         case .thinking: .orange
         case .speaking: .blue
-        case .annotate: .purple
+        case .annotate: isAskListening ? .green : .purple
         default: .white.opacity(0.7)
         }
     }
@@ -208,7 +218,7 @@ struct VoicePillView: View {
         case .thinking: return Color.orange.opacity(0.82)
         case .speaking: return Color(white: 0.12, opacity: 0.92)
         case .listening: return Color(white: 0.15, opacity: 0.88)
-        case .annotate: return Color.purple.opacity(0.35)
+        case .annotate: return isAskListening ? Color(white: 0.15, opacity: 0.88) : Color.purple.opacity(0.35)
         default: return Color.black.opacity(0.72)
         }
     }
@@ -219,6 +229,7 @@ struct VoicePillView: View {
         case .thinking: return .orange.opacity(0.55)
         case .speaking: return .white.opacity(0.22)
         case .listening: return .green.opacity(0.45)
+        case .annotate: return isAskListening ? .green.opacity(0.45) : .white.opacity(0.15)
         default: return .white.opacity(0.15)
         }
     }
