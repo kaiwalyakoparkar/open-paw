@@ -112,7 +112,6 @@ struct AnnotationOverlayView: View {
     var onCancel: () -> Void
     @State private var current: [CGPoint] = []
     @State private var committed: [AnnotationStroke] = []
-    @State private var hintPulse = false
 
     private var hasStrokes: Bool { !committed.isEmpty || !current.isEmpty }
 
@@ -121,20 +120,7 @@ struct AnnotationOverlayView: View {
             Color.clear.allowsHitTesting(false)
         } else {
             GeometryReader { geo in
-                ZStack {
-                    drawingLayer(size: geo.size)
-                    Group {
-                        if !hasStrokes {
-                            VStack(spacing: 0) {
-                                toolbar
-                                Spacer()
-                            }
-                            bottomHint
-                                .allowsHitTesting(false)
-                        }
-                    }
-                    .animation(nil, value: hasStrokes)
-                }
+                drawingLayer(size: geo.size)
             }
             .onExitCommand(perform: onCancel)
             .background {
@@ -148,58 +134,6 @@ struct AnnotationOverlayView: View {
                     .frame(width: 0, height: 0)
             }
         }
-    }
-
-    private var toolbar: some View {
-        HStack(spacing: 12) {
-            Image(systemName: "pencil.tip.crop.circle")
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(ExplainTheme.stroke)
-
-            VStack(alignment: .leading, spacing: 1) {
-                Text("Explain this")
-                    .font(.system(size: 12, weight: .semibold, design: .rounded))
-                    .foregroundStyle(.white.opacity(0.95))
-                Text("Draw around what you want explained")
-                    .font(.system(size: 10, weight: .medium, design: .rounded))
-                    .foregroundStyle(.white.opacity(0.55))
-            }
-        }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 12)
-        .frame(maxWidth: 480)
-        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16))
-        .overlay(
-            RoundedRectangle(cornerRadius: 16)
-                .strokeBorder(
-                    LinearGradient(
-                        colors: [.white.opacity(0.22), ExplainTheme.stroke.opacity(0.35)],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    ),
-                    lineWidth: 1
-                )
-        )
-        .shadow(color: .black.opacity(0.35), radius: 24, y: 8)
-        .padding(.top, max(NSScreen.main?.safeAreaInsets.top ?? 0, 24) + 16)
-        .frame(maxWidth: .infinity)
-    }
-
-    private var bottomHint: some View {
-        HStack(spacing: 8) {
-            Image(systemName: "hand.draw")
-                .font(.system(size: 14, weight: .medium))
-                .foregroundStyle(ExplainTheme.stroke.opacity(hintPulse ? 0.95 : 0.55))
-            Text("Click and drag to highlight")
-                .font(.system(size: 12, weight: .medium, design: .rounded))
-                .foregroundStyle(.white.opacity(hintPulse ? 0.75 : 0.45))
-        }
-        .animation(.easeInOut(duration: 1.4).repeatForever(autoreverses: true), value: hintPulse)
-        .padding(.horizontal, 18)
-        .padding(.vertical, 10)
-        .background(Color.black.opacity(0.72), in: Capsule())
-        .overlay(Capsule().strokeBorder(ExplainTheme.stroke.opacity(0.25), lineWidth: 1))
-        .onAppear { hintPulse = true }
     }
 
     private func drawingLayer(size: CGSize) -> some View {
