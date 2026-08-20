@@ -112,7 +112,6 @@ struct AnnotationOverlayView: View {
     var onCancel: () -> Void
     @State private var current: [CGPoint] = []
     @State private var committed: [AnnotationStroke] = []
-    @State private var isDrawing = false
     @State private var hintPulse = false
 
     private var hasStrokes: Bool { !committed.isEmpty || !current.isEmpty }
@@ -124,15 +123,17 @@ struct AnnotationOverlayView: View {
             GeometryReader { geo in
                 ZStack {
                     drawingLayer(size: geo.size)
-                    VStack(spacing: 0) {
-                        toolbar
-                        Spacer()
+                    Group {
                         if !hasStrokes {
+                            VStack(spacing: 0) {
+                                toolbar
+                                Spacer()
+                            }
                             bottomHint
-                                .padding(.bottom, 48)
-                                .transition(.opacity.combined(with: .move(edge: .bottom)))
+                                .allowsHitTesting(false)
                         }
                     }
+                    .animation(nil, value: hasStrokes)
                 }
             }
             .onExitCommand(perform: onCancel)
@@ -141,11 +142,10 @@ struct AnnotationOverlayView: View {
                     .keyboardShortcut(.return, modifiers: [])
                     .opacity(0)
                     .frame(width: 0, height: 0)
-            }
-            .onAppear {
-                withAnimation(.easeInOut(duration: 1.4).repeatForever(autoreverses: true)) {
-                    hintPulse = true
-                }
+                Button("") { undoLast() }
+                    .keyboardShortcut("z", modifiers: .command)
+                    .opacity(0)
+                    .frame(width: 0, height: 0)
             }
         }
     }
@@ -155,7 +155,6 @@ struct AnnotationOverlayView: View {
             Image(systemName: "pencil.tip.crop.circle")
                 .font(.system(size: 13, weight: .semibold))
                 .foregroundStyle(ExplainTheme.stroke)
-                .symbolEffect(.pulse, isActive: isDrawing)
 
             VStack(alignment: .leading, spacing: 1) {
                 Text("Explain this")
@@ -164,22 +163,6 @@ struct AnnotationOverlayView: View {
                 Text("Draw around what you want explained")
                     .font(.system(size: 10, weight: .medium, design: .rounded))
                     .foregroundStyle(.white.opacity(0.55))
-            }
-
-            Spacer(minLength: 8)
-
-            if !committed.isEmpty {
-                Button(action: undoLast) {
-                    Label("Undo", systemImage: "arrow.uturn.backward")
-                        .font(.system(size: 11, weight: .medium, design: .rounded))
-                        .foregroundStyle(.white.opacity(0.85))
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 6)
-                        .background(Color.white.opacity(0.1), in: Capsule())
-                }
-                .buttonStyle(.plain)
-                .keyboardShortcut("z", modifiers: .command)
-                .transition(.scale.combined(with: .opacity))
             }
         }
         .padding(.horizontal, 16)
@@ -198,9 +181,8 @@ struct AnnotationOverlayView: View {
                 )
         )
         .shadow(color: .black.opacity(0.35), radius: 24, y: 8)
-        .padding(.top, 20)
+        .padding(.top, max(NSScreen.main?.safeAreaInsets.top ?? 0, 24) + 16)
         .frame(maxWidth: .infinity)
-        .animation(.easeInOut(duration: 0.2), value: committed.count)
     }
 
     private var bottomHint: some View {
@@ -212,10 +194,12 @@ struct AnnotationOverlayView: View {
                 .font(.system(size: 12, weight: .medium, design: .rounded))
                 .foregroundStyle(.white.opacity(hintPulse ? 0.75 : 0.45))
         }
+        .animation(.easeInOut(duration: 1.4).repeatForever(autoreverses: true), value: hintPulse)
         .padding(.horizontal, 18)
         .padding(.vertical, 10)
-        .background(.ultraThinMaterial.opacity(0.85), in: Capsule())
+        .background(Color.black.opacity(0.72), in: Capsule())
         .overlay(Capsule().strokeBorder(ExplainTheme.stroke.opacity(0.25), lineWidth: 1))
+        .onAppear { hintPulse = true }
     }
 
     private func drawingLayer(size: CGSize) -> some View {
@@ -238,12 +222,10 @@ struct AnnotationOverlayView: View {
         .gesture(
             DragGesture(minimumDistance: 0)
                 .onChanged { value in
-                    isDrawing = true
                     let n = CGPoint(x: value.location.x / size.width, y: value.location.y / size.height)
                     current.append(n)
                 }
                 .onEnded { _ in
-                    isDrawing = false
                     if !current.isEmpty {
                         let s = AnnotationStroke(points: current)
                         committed.append(s)

@@ -10,6 +10,8 @@ public enum BuddyLayout {
     public static let pillMinWidth: CGFloat = 160
     public static let pillMaxWidth: CGFloat = 520
     public static let pillMinHeight: CGFloat = 200
+    /// Voice pill ScrollView ceiling — window height must match or the pill stretches empty.
+    public static let bodyMaxHeight: CGFloat = 220
     /// Capsule row (~28pt) plus slack so bottoms aren't clipped into the cat.
     public static let collapsedPillHeight: CGFloat = 52
     /// Done chip above the compact annotate bar (button + gap). Window only — pill hugs.
@@ -90,6 +92,11 @@ public enum BuddyLayout {
             nil
         )
         return ceil(fit.height)
+    }
+
+    /// Height the pill actually shows: full wrap until `bodyMaxHeight`, then scroll.
+    public static func displayedBodyHeight(for text: String, fontSize: CGFloat = 17) -> CGFloat {
+        min(bodyHeight(for: text, fontSize: fontSize), bodyMaxHeight)
     }
 
     /// True when the hosting view is large enough to show the pill without clipping.

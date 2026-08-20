@@ -114,16 +114,16 @@ struct VoicePillView: View {
             }
 
             if !bubble.displayText.isEmpty {
-                let long = bubble.displayText.count > 400
+                let bodyH = BuddyLayout.bodyHeight(for: bubble.displayText, fontSize: bodyFontSize)
                 let body = Text(bubble.displayAttributed)
                     .font(.system(size: bodyFontSize, design: .rounded))
                     .foregroundStyle(.white.opacity(0.95))
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .fixedSize(horizontal: false, vertical: true)
                     .textSelection(.enabled)
-                if long {
+                if bodyH > BuddyLayout.bodyMaxHeight {
                     ScrollView(.vertical, showsIndicators: true) { body }
-                        .frame(maxHeight: 220, alignment: .top)
+                        .frame(height: BuddyLayout.bodyMaxHeight, alignment: .top)
                 } else {
                     body
                 }
@@ -148,9 +148,10 @@ struct VoicePillView: View {
         .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(pillBorder, lineWidth: 1))
     }
 
-    /// Status row only — don't stretch into the wait-bubble floor.
+    /// Wait/error keep the floor. Everything else hugs the body — no empty black under the answer.
     private var hugsListeningHeight: Bool {
-        state == .listening || state == .annotate || (state == .idle && isHoldingKey)
+        if isError || isProcessing || state == .thinking { return false }
+        return true
     }
 
     @ViewBuilder

@@ -55,6 +55,8 @@ enum BuddyLayoutChecks {
         dragKeepsFullBubbleOnScreen()
         listeningHugsInsteadOfWaitFloor()
         annotateHugsInsteadOfWaitFloor()
+        answerHugsInsteadOfWaitFloor()
+        longAnswerWindowMatchesScrollCap()
         print("BuddyLayout OK")
     }
 
@@ -328,5 +330,56 @@ enum BuddyLayoutChecks {
         )
         let collapsed = BuddyLayout.fixedCollapsedSize(avatarSize: avatar)
         assert(annotate.height >= collapsed.height)
+    }
+
+    /// Ready/answer must hug the body — the 200pt wait floor leaves a black gap after short text.
+    private static func answerHugsInsteadOfWaitFloor() {
+        let avatar: CGFloat = 80
+        let wait = BuddyLayout.fixedExpandedSize(avatarSize: avatar)
+        let text = "Purple circle marks a diff hunk. +19 -2 means lines added and removed."
+        let answer = BuddyLayout.expandedWindowSize(
+            bodyHeight: BuddyLayout.displayedBodyHeight(for: text),
+            avatarSize: avatar,
+            maxHeight: 2000,
+            minPillHeight: 0
+        )
+        assert(answer.width == wait.width)
+        assert(
+            answer.height < wait.height,
+            "answer must hug body, not sit on wait floor: \(answer.height) vs \(wait.height)"
+        )
+        let collapsed = BuddyLayout.fixedCollapsedSize(avatarSize: avatar)
+        assert(answer.height >= collapsed.height)
+    }
+
+    /// ScrollView caps the body at bodyMaxHeight; window must use that cap or the pill stretches empty.
+    private static func longAnswerWindowMatchesScrollCap() {
+        let avatar: CGFloat = 80
+        let long = String(repeating: "tomorrow's meetings in IST. ", count: 80)
+        let full = BuddyLayout.bodyHeight(for: long)
+        let shown = BuddyLayout.displayedBodyHeight(for: long)
+        assert(full > BuddyLayout.bodyMaxHeight, "fixture must exceed scroll cap, got \(full)")
+        assert(
+            shown == BuddyLayout.bodyMaxHeight,
+            "displayed body must cap at scroll height: \(shown) vs \(BuddyLayout.bodyMaxHeight)"
+        )
+        let short = "ok"
+        assert(BuddyLayout.displayedBodyHeight(for: short) == BuddyLayout.bodyHeight(for: short))
+        let capped = BuddyLayout.expandedWindowSize(
+            bodyHeight: shown,
+            avatarSize: avatar,
+            maxHeight: 2000,
+            minPillHeight: 0
+        )
+        let uncapped = BuddyLayout.expandedWindowSize(
+            bodyHeight: full,
+            avatarSize: avatar,
+            maxHeight: 2000,
+            minPillHeight: 0
+        )
+        assert(
+            capped.height < uncapped.height,
+            "window must follow scroll cap, not full text: \(capped.height) vs \(uncapped.height)"
+        )
     }
 }
