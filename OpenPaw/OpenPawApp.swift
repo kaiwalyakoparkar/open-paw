@@ -5,6 +5,7 @@ import SwiftUI
 @main
 enum OpenPawMain {
     static func main() {
+        AppRelaunch.execFromBundleIfNeeded()
         let app = NSApplication.shared
         app.setActivationPolicy(.accessory)
         let delegate = AppDelegate()

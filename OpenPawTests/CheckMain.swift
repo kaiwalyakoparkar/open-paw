@@ -19,6 +19,7 @@ enum CheckMain {
         AppConfigHarnessChecks.run()
         LastUserTextChecks.run()
         CLIBinaryChecks.run()
+        InfoPlistChecks.run()
         ClaudeStreamParserChecks.run()
         ClaudeCLIArgsChecks.run()
         CodexStreamParserChecks.run()

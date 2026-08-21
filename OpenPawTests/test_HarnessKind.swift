@@ -86,3 +86,22 @@ enum CLIBinaryChecks {
         print("CLIBinary OK")
     }
 }
+
+enum InfoPlistChecks {
+    static func run() {
+        let plist = URL(fileURLWithPath: #file)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .appendingPathComponent("OpenPaw/Info.plist")
+        let obj = try! PropertyListSerialization.propertyList(
+            from: Data(contentsOf: plist),
+            format: nil
+        ) as! [String: Any]
+        assert(obj["CFBundleExecutable"] as? String == "OpenPaw")
+        assert(obj["CFBundleIdentifier"] as? String == "local.openpaw")
+        assert((obj["NSMicrophoneUsageDescription"] as? String)?.isEmpty == false)
+        assert(AppBundleLayout.macOSAllows("OpenPaw"))
+        assert(!AppBundleLayout.macOSAllows("OpenPaw_OpenPaw.bundle"))
+        print("InfoPlist OK")
+    }
+}

@@ -88,7 +88,7 @@ final class CompanionManager: NSObject {
         monitor.register()
         holdMonitor = monitor
         if !monitor.isRegistered {
-            buddy?.setBubble(.error("Grant Accessibility for hold-to-talk — System Settings → Privacy"))
+            buddy?.setBubble(.error("Hold-to-talk hotkey failed to register"))
         }
 
         do {

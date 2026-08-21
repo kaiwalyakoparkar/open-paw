@@ -1,4 +1,3 @@
-import AppKit
 import ApplicationServices
 import Carbon
 import OpenPawCore
@@ -25,8 +24,8 @@ private func holdHotKeyHandler(
     return noErr
 }
 
-/// Hold-to-talk: Carbon press/release for key combos (no Accessibility).
-/// Modifier-only keys use NSEvent flagsChanged (needs Accessibility).
+/// Hold-to-talk: Carbon press/release for key combos.
+/// Modifier keys poll HID flags — no Accessibility.
 final class HoldToTalkMonitor {
     private static var instances: [UInt32: (Bool) -> Void] = [:]
     private static let carbonID: UInt32 = 2
@@ -34,8 +33,8 @@ final class HoldToTalkMonitor {
     private let kind: HoldKeyKind
     private let onBegin: () -> Void
     private let onEnd: () -> Void
-    private var globalMonitor: Any?
-    private var localMonitor: Any?
+    private var gate = HoldGate(releaseTicks: 4)
+    private var pollTimer: Timer?
     private var hotKeyRef: EventHotKeyRef?
     private var handlerRef: EventHandlerRef?
     private var holding = false
@@ -62,15 +61,14 @@ final class HoldToTalkMonitor {
         case .keyCombo(let mods, let keyCode):
             registerCarbon(mods: mods, keyCode: keyCode)
         case .modifierOnly, .modifierChord:
-            registerNSEvent()
+            registerHIDPoll()
         }
     }
 
     func unregister() {
-        if let globalMonitor { NSEvent.removeMonitor(globalMonitor) }
-        if let localMonitor { NSEvent.removeMonitor(localMonitor) }
-        globalMonitor = nil
-        localMonitor = nil
+        pollTimer?.invalidate()
+        pollTimer = nil
+        gate = HoldGate(releaseTicks: 4)
         if let hotKeyRef { UnregisterEventHotKey(hotKeyRef) }
         hotKeyRef = nil
         handlerRef = nil
@@ -117,42 +115,33 @@ final class HoldToTalkMonitor {
         registered = true
     }
 
-    private func registerNSEvent() {
-        let mask: NSEvent.EventTypeMask = [.flagsChanged, .keyDown, .keyUp]
-        globalMonitor = NSEvent.addGlobalMonitorForEvents(matching: mask) { [weak self] in
-            self?.handle($0)
+    private func registerHIDPoll() {
+        // ponytail: 50ms flag poll; CGEvent tap + Accessibility if latency matters.
+        let timer = Timer(timeInterval: 0.05, repeats: true) { [weak self] _ in
+            self?.pollFlags()
         }
-        localMonitor = NSEvent.addLocalMonitorForEvents(matching: mask) { [weak self] event in
-            self?.handle(event)
-            return event
-        }
-        registered = globalMonitor != nil || localMonitor != nil
-        if !AXIsProcessTrusted() {
-            NSLog("open-paw: modifier hold key needs Accessibility — System Settings → Privacy")
-        }
+        RunLoop.main.add(timer, forMode: .common)
+        pollTimer = timer
+        registered = true
+        pollFlags()
     }
 
-    private func handle(_ event: NSEvent) {
+    private func pollFlags() {
+        // HID system flags, not flagsChanged event bits (orderFront zeros those).
+        let flags = UInt(CGEventSource.flagsState(.hidSystemState).rawValue)
+        let pressed: Bool
         switch kind {
         case .modifierOnly(let keyCode):
-            guard event.type == .flagsChanged else { return }
-            guard HotkeyKeyMap.modifierHoldEventApplies(eventKeyCode: event.keyCode, configured: keyCode) else { return }
-            updateHold(HotkeyKeyMap.modifierHoldIsDown(keyCode: keyCode, nsEventFlags: NSEvent.modifierFlags.rawValue))
+            pressed = HotkeyKeyMap.modifierHoldIsDown(keyCode: keyCode, nsEventFlags: flags)
         case .modifierChord(let mods):
-            guard event.type == .flagsChanged else { return }
-            updateHold(HotkeyKeyMap.nsEventModifiersMatch(NSEvent.modifierFlags.rawValue, requiredCarbon: mods))
-        case .keyCombo(let mods, let keyCode):
-            guard event.keyCode == keyCode, !event.isARepeat else { return }
-            switch event.type {
-            case .keyDown:
-                guard HotkeyKeyMap.nsEventModifiersMatch(event.modifierFlags.rawValue, requiredCarbon: mods) else { return }
-                updateHold(true)
-            case .keyUp:
-                guard holding else { return }
-                updateHold(false)
-            default:
-                break
-            }
+            pressed = HotkeyKeyMap.nsEventModifiersMatch(flags, requiredCarbon: mods)
+        case .keyCombo:
+            return
+        }
+        switch gate.sample(pressed) {
+        case true: updateHold(true)
+        case false: updateHold(false)
+        case nil: break
         }
     }
 

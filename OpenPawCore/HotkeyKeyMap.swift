@@ -68,7 +68,7 @@ public enum HotkeyKeyMap {
         if nsEventRaw & (1 << 17) != 0 { bits |= 1 << 9 }
         if nsEventRaw & (1 << 20) != 0 { bits |= 1 << 8 }
         let mask: UInt32 = (1 << 8) | (1 << 9) | (1 << 11) | (1 << 12)
-        return (bits & mask) == (requiredCarbon & mask)
+        return (bits & mask & requiredCarbon) == (requiredCarbon & mask)
     }
 
     /// Left Option (58) and right Option (61) both set the Option flag.
@@ -120,5 +120,39 @@ public enum HotkeyKeyMap {
             }
         }
         return bits
+    }
+}
+
+/// Nested `.bundle` in Contents/MacOS makes `codesign` fail ("bundle format unrecognized").
+public enum AppBundleLayout {
+    public static func macOSAllows(_ name: String) -> Bool {
+        !name.hasSuffix(".bundle")
+    }
+}
+
+/// Debounce modifier-hold release so a 0-flag sample (orderFront) does not end PTT.
+public struct HoldGate {
+    public private(set) var down = false
+    private var offStreak = 0
+    private let releaseTicks: Int
+
+    public init(releaseTicks: Int = 4) {
+        self.releaseTicks = max(releaseTicks, 1)
+    }
+
+    /// `true` on press, `false` on release, `nil` if unchanged.
+    public mutating func sample(_ pressed: Bool) -> Bool? {
+        if pressed {
+            offStreak = 0
+            guard !down else { return nil }
+            down = true
+            return true
+        }
+        guard down else { return nil }
+        offStreak += 1
+        guard offStreak >= releaseTicks else { return nil }
+        down = false
+        offStreak = 0
+        return false
     }
 }
