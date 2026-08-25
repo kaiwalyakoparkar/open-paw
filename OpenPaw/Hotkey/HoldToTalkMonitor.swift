@@ -138,10 +138,8 @@ final class HoldToTalkMonitor {
         case .keyCombo:
             return
         }
-        switch gate.sample(pressed) {
-        case true: updateHold(true)
-        case false: updateHold(false)
-        case nil: break
+        if let edge = gate.sample(pressed) {
+            updateHold(edge)
         }
     }
 
