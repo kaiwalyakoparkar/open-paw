@@ -9,6 +9,28 @@ enum HarnessKindChecks {
         assert(HarnessKind.fromArgv(["OpenPaw", "--hermes"]) == .hermes)
         assert(HarnessKind.fromArgv(["OpenPaw", "--claude", "--codex"]) == .codex)
         assert(HarnessKind.fromArgv(["OpenPaw", "--codex", "--claude"]) == .claude)
+
+        let opus = ProcessArgv.parse(["OpenPaw", "--claude", "--opus"])
+        assert(opus.harness == .claude && opus.model == "opus", "\(opus)")
+        let sonnetOnly = ProcessArgv.parse(["--sonnet"])
+        assert(sonnetOnly.harness == .claude && sonnetOnly.model == "sonnet")
+        let haiku = ProcessArgv.parse(["OpenPaw", "--haiku"])
+        assert(haiku.harness == .claude && haiku.model == "haiku")
+        let fable = ProcessArgv.parse(["--claude", "--fable"])
+        assert(fable.harness == .claude && fable.model == "fable")
+        let terra = ProcessArgv.parse(["OpenPaw", "--codex", "--terra"])
+        assert(terra.harness == .codex && terra.model == "gpt-5.6-terra", "\(terra)")
+        let sol = ProcessArgv.parse(["--sol"])
+        assert(sol.harness == .codex && sol.model == "gpt-5.6-sol")
+        let luna = ProcessArgv.parse(["--luna"])
+        assert(luna.harness == .codex && luna.model == "gpt-5.6-luna")
+        let explicit = ProcessArgv.parse(["--claude", "--model", "claude-sonnet-5"])
+        assert(explicit.harness == .claude && explicit.model == "claude-sonnet-5")
+        let eq = ProcessArgv.parse(["--codex", "--model=gpt-5.6-sol"])
+        assert(eq.harness == .codex && eq.model == "gpt-5.6-sol")
+        let lastWins = ProcessArgv.parse(["--opus", "--haiku"])
+        assert(lastWins.model == "haiku")
+        assert(ProcessArgv.parse(["OpenPaw"]).model == nil)
         print("HarnessKind OK")
     }
 }
@@ -50,8 +72,10 @@ enum AppConfigHarnessChecks {
         assert(cfg.codex.bin == "codex")
 
         var overwritten = cfg
-        overwritten.harness = HarnessKind.fromArgv(["--claude"]) ?? overwritten.harness
+        ProcessArgv.parse(["--claude", "--opus"]).apply(to: &overwritten)
         assert(overwritten.harness == .claude)
+        assert(overwritten.claude.model == "opus")
+        assert(cfg.claude.model == nil)
 
         let exampleURL = URL(fileURLWithPath: #file)
             .deletingLastPathComponent()

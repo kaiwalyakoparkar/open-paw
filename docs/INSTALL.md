@@ -47,6 +47,7 @@ Edit `~/.config/open-paw/config.json`:
 | `hermes.model` | No | Default `hermes-agent` |
 | `claude.bin` / `codex.bin` | No | CLI name or absolute path |
 | `claude.cwd` / `codex.cwd` | No | Working directory (`~` default). MCP/CLAUDE.md follow this |
+| `claude.model` / `codex.model` | No | CLI `--model`. Claude: `opus`/`sonnet`/`haiku`/`fable`. Codex: `gpt-5.6-sol`/`terra`/`luna` |
 | `claude.permission_mode` | No | Default `acceptEdits`. `bypassPermissions` is YOLO |
 | `hotkey.hold` | No | Default: hold **Right Option** to talk |
 | `hotkey.toggle` | No | Default: **Control+Option** wake/sleep |
@@ -101,6 +102,7 @@ Install `claude` so it is on PATH (or set `claude.bin` to an absolute path). MCP
 ```bash
 # config: "harness": "claude"
 swift run OpenPaw --claude
+swift run OpenPaw --claude --opus    # or --sonnet / --haiku / --fable
 ```
 
 Default permission mode is `acceptEdits` (no TTY for Allow taps). Do not set `bypassPermissions` unless you trust every voice prompt.
@@ -111,9 +113,10 @@ Install `codex` (or set `codex.bin`). MCP comes from `~/.codex/config.toml`.
 
 ```bash
 swift run OpenPaw --codex
+swift run OpenPaw --codex --terra    # or --sol / --luna
 ```
 
-`--claude` / `--codex` / `--hermes` override `harness` for **that process only**.
+`--claude` / `--codex` / `--hermes` override `harness` for **that process only**. Model shortcuts (`--opus`, `--terra`, …) and `--model NAME` are also process-only; see [README — Model names that work](../README.md#model-names-that-work).
 
 ## 4. macOS permissions
 

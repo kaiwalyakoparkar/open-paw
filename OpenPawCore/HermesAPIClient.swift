@@ -1,16 +1,47 @@
 import Foundation
 
 public final class HermesAPIClient: AgentHarness, @unchecked Sendable {
-    private let config: HermesConfig
-    private var task: URLSessionDataTask?
+    public static let sessionIDHeader = "X-Hermes-Session-Id"
 
-    public init(config: HermesConfig) {
+    private let config: HermesConfig
+    private let storeURL: URL
+    private let pinnedID: String
+    private var task: URLSessionDataTask?
+    private let clearGate = BackgroundClearGate()
+
+    public init(config: HermesConfig, storeURL: URL = PinnedSessionStore.defaultURL()) {
         self.config = config
+        self.storeURL = storeURL
+        self.pinnedID = PinnedSessionStore.hermesPinnedID
+        var store = PinnedSessionStore.load(from: storeURL)
+        if store.hermes != pinnedID {
+            store.hermes = pinnedID
+            try? store.save(to: storeURL)
+        }
     }
 
     public func cancel() {
         task?.cancel()
         task = nil
+    }
+
+    public func resetSession() {}
+
+    /// `{origin}/api/sessions/{id}` — strips a trailing `/v1` from the OpenAI base URL.
+    public static func sessionDeleteURL(
+        baseURL: String,
+        sessionID: String = PinnedSessionStore.hermesPinnedID
+    ) -> URL? {
+        var base = baseURL.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        if base.hasSuffix("/v1") {
+            base = String(base.dropLast(3))
+            base = base.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        }
+        return URL(string: base + "/api/sessions/\(sessionID)")
+    }
+
+    public static func completionsURL(baseURL: String) -> URL? {
+        URL(string: baseURL.trimmingCharacters(in: CharacterSet(charactersIn: "/")) + "/chat/completions")
     }
 
     public func stream(
@@ -19,13 +50,16 @@ public final class HermesAPIClient: AgentHarness, @unchecked Sendable {
         onTool: @escaping (ToolCallDelta) -> Void,
         onProgress: @escaping (String) -> Void = { _ in }
     ) async throws -> StreamResult {
-        guard let url = URL(string: config.baseURL.trimmingCharacters(in: CharacterSet(charactersIn: "/")) + "/chat/completions") else {
+        await clearGate.awaitIfNeeded()
+
+        guard let url = Self.completionsURL(baseURL: config.baseURL) else {
             throw URLError(.badURL)
         }
         var req = URLRequest(url: url)
         req.httpMethod = "POST"
         req.setValue("Bearer \(config.apiKey)", forHTTPHeaderField: "Authorization")
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.setValue(pinnedID, forHTTPHeaderField: Self.sessionIDHeader)
         req.timeoutInterval = config.sseTimeoutSeconds
 
         let body: [String: Any] = [
@@ -39,6 +73,8 @@ public final class HermesAPIClient: AgentHarness, @unchecked Sendable {
         cfg.timeoutIntervalForRequest = config.sseTimeoutSeconds
         cfg.timeoutIntervalForResource = config.sseTimeoutSeconds
 
+        defer { scheduleClear() }
+
         return try await withCheckedThrowingContinuation { cont in
             let delegate = StreamDelegate(onDelta: onDelta, onTool: onTool, onProgress: onProgress) { result in
                 cont.resume(with: result)
@@ -48,6 +84,19 @@ public final class HermesAPIClient: AgentHarness, @unchecked Sendable {
             self.task = t
             delegate.retainSession = s
             t.resume()
+        }
+    }
+
+    private func scheduleClear() {
+        let apiKey = config.apiKey
+        guard let deleteURL = Self.sessionDeleteURL(baseURL: config.baseURL, sessionID: pinnedID) else { return }
+        clearGate.schedule {
+            var req = URLRequest(url: deleteURL)
+            req.httpMethod = "DELETE"
+            req.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+            req.timeoutInterval = 30
+            // ponytail: fire-and-forget; 404 = already empty
+            _ = try? await URLSession.shared.data(for: req)
         }
     }
 

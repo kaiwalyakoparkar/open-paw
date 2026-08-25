@@ -133,18 +133,21 @@ public struct CLIHarnessConfig: Codable, Equatable {
     public var bin: String
     public var cwd: String
     public var permissionMode: String
+    /// Nil → harness CLI default. Claude aliases: opus/sonnet/haiku/fable. Codex: gpt-5.6-sol/terra/luna.
+    public var model: String?
 
     public static let claudeDefault = CLIHarnessConfig(bin: "claude", cwd: "~", permissionMode: "acceptEdits")
     public static let codexDefault = CLIHarnessConfig(bin: "codex", cwd: "~", permissionMode: "acceptEdits")
 
-    public init(bin: String, cwd: String, permissionMode: String) {
+    public init(bin: String, cwd: String, permissionMode: String, model: String? = nil) {
         self.bin = bin
         self.cwd = cwd
         self.permissionMode = permissionMode
+        self.model = model
     }
 
     enum CodingKeys: String, CodingKey {
-        case bin, cwd
+        case bin, cwd, model
         case permissionMode = "permission_mode"
     }
 
@@ -153,6 +156,7 @@ public struct CLIHarnessConfig: Codable, Equatable {
         bin = try c.decodeIfPresent(String.self, forKey: .bin) ?? ""
         cwd = try c.decodeIfPresent(String.self, forKey: .cwd) ?? "~"
         permissionMode = try c.decodeIfPresent(String.self, forKey: .permissionMode) ?? "acceptEdits"
+        model = try c.decodeIfPresent(String.self, forKey: .model)
     }
 
     func filled(defaultBin: String) -> CLIHarnessConfig {

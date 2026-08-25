@@ -22,7 +22,12 @@ enum CheckMain {
         InfoPlistChecks.run()
         ClaudeStreamParserChecks.run()
         ClaudeCLIArgsChecks.run()
+        ClaudeSessionFilesChecks.run()
         CodexStreamParserChecks.run()
+        CodexCLIArgsChecks.run()
+        HermesSessionURLChecks.run()
+        PinnedSessionStoreChecks.run()
+        BackgroundClearGateChecks.run()
         print("all checks passed")
     }
 }

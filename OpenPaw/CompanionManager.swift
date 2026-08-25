@@ -200,7 +200,7 @@ final class CompanionManager: NSObject {
         captureStarted = false
         turnLocked = false
         agent?.cancel()
-        agent?.resetSession()
+        // pin stays; harness clears in background after stream
         tts?.stop()
         capture?.stop()
         stt?.close()

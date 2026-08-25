@@ -54,9 +54,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func applyArgv(_ config: AppConfig) -> AppConfig {
         var cfg = config
-        if let flag = HarnessKind.fromArgv(CommandLine.arguments) {
-            cfg.harness = flag
-        }
+        ProcessArgv.parse(CommandLine.arguments).apply(to: &cfg)
         return cfg
     }
 

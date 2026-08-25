@@ -29,7 +29,7 @@ Copy `config.example.json` → `~/.config/open-paw/config.json` and add `gradium
 
 ## Run with Claude or Codex
 
-Already use Claude Code or Codex CLI? Start here. No Hermes gateway. No `hermes.api_key`. `--claude` / `--codex` override `harness` for **that process only**.
+Already use Claude Code or Codex CLI? Start here. No Hermes gateway. No `hermes.api_key`. `--claude` / `--codex` override `harness` for **that process only**. Add `--opus` / `--sonnet` / `--haiku` (Claude) or `--sol` / `--terra` / `--luna` (Codex) to pick a model.
 
 ### Claude Code (`--claude`)
 
@@ -42,9 +42,11 @@ chmod 0600 ~/.config/open-paw/config.json
 # edit config: add gradium.api_key only
 
 swift run OpenPaw --claude
+swift run OpenPaw --claude --opus      # or --sonnet / --haiku / --fable
+swift run OpenPaw --claude --model opus
 ```
 
-To make Claude the default, set `"harness": "claude"` in config and run `swift run OpenPaw` with no flag.
+To make Claude the default, set `"harness": "claude"` in config and run `swift run OpenPaw` with no flag. Pin a model with `"claude": { "model": "opus" }`.
 
 ### Codex CLI (`--codex`)
 
@@ -57,9 +59,31 @@ chmod 0600 ~/.config/open-paw/config.json
 # edit config: add gradium.api_key only
 
 swift run OpenPaw --codex
+swift run OpenPaw --codex --terra      # or --sol / --luna
+swift run OpenPaw --codex --model gpt-5.6-terra
 ```
 
-To make Codex the default, set `"harness": "codex"` in config and run `swift run OpenPaw` with no flag.
+To make Codex the default, set `"harness": "codex"` in config and run `swift run OpenPaw` with no flag. Pin a model with `"codex": { "model": "gpt-5.6-terra" }`.
+
+### Model names that work
+
+Flags are process-only. Last flag wins. `--opus` / `--sonnet` / `--haiku` / `--fable` also imply `--claude`. `--sol` / `--terra` / `--luna` imply `--codex`. `--model NAME` applies to whichever harness is selected.
+
+| Flag | Passed through as |
+| --- | --- |
+| `--opus` | Claude `--model opus` |
+| `--sonnet` | Claude `--model sonnet` |
+| `--haiku` | Claude `--model haiku` |
+| `--fable` | Claude `--model fable` |
+| `--sol` | Codex `--model gpt-5.6-sol` |
+| `--terra` | Codex `--model gpt-5.6-terra` |
+| `--luna` | Codex `--model gpt-5.6-luna` |
+
+**Claude** (`claude --model`): aliases `opus`, `sonnet`, `haiku`, `fable`, `best`. Full ids such as `claude-fable-5` work too.
+
+**Codex** (`codex exec --model`): `gpt-5.6-sol` (flagship), `gpt-5.6-terra` (balanced), `gpt-5.6-luna` (fast). Pro preview: `gpt-5.3-codex-spark`. ChatGPT sign-in no longer serves `gpt-5.2`, `gpt-5.3-codex`, or (after 31 Aug 2026) `gpt-5.4` / `gpt-5.4-mini`.
+
+**Hermes:** `hermes.model` in config (default `hermes-agent`), or `--hermes --model <id>`.
 
 On first launch, grant **Microphone** and **Screen Recording** when macOS prompts. Look for the 🐱 icon in the menu bar.
 
@@ -92,7 +116,7 @@ swift run OpenPaw
 - **Screen annotation** captures a screenshot, lets you mark a region, and sends the annotated image plus your voice prompt to the selected harness.
 - **Hotkeys** (`GlobalHotkey`, `HoldToTalkMonitor`) map wake/toggle and push-to-talk without leaving your current app.
 
-Open Paw reads config from `~/.config/open-paw/config.json`. MCP servers live with the harness: `~/.hermes/config.yaml`, `~/.claude.json`, or `~/.codex/config.toml`. Process flags `--claude` / `--codex` / `--hermes` override `harness` for that run only.
+Open Paw reads config from `~/.config/open-paw/config.json`. MCP servers live with the harness: `~/.hermes/config.yaml`, `~/.claude.json`, or `~/.codex/config.toml`. Process flags `--claude` / `--codex` / `--hermes` override `harness` for that run only; `--opus` / `--terra` / `--model NAME` override the model.
 
 ## Security
 
@@ -104,7 +128,7 @@ Hermes, Claude Code, and Codex tools run on the host through *their* configs. Re
 
 | Goal | Start here |
 | --- | --- |
-| Run with Claude Code (`--claude`) or Codex (`--codex`) | [Run with Claude or Codex](#run-with-claude-or-codex) |
+| Run with Claude Code (`--claude --opus`) or Codex (`--codex --terra`) | [Run with Claude or Codex](#run-with-claude-or-codex) |
 | First-time setup, permissions, troubleshooting | [docs/INSTALL.md](docs/INSTALL.md) |
 | Hermes API connectivity checklist | [docs/phase0-hermes-spike.md](docs/phase0-hermes-spike.md) |
 | Local config template | [config.example.json](config.example.json) |
