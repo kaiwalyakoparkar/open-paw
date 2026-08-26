@@ -28,7 +28,11 @@ swift build --product OpenPaw
 
 ## 2. Create local config (secrets stay out of git)
 
-Open Paw reads **`~/.config/open-paw/config.json`**. The repo ships only `config.example.json` — copy it locally:
+Open Paw reads **`~/.config/open-paw/config.json`**.
+
+**First-run setup:** If the file is missing (or `"onboarded": false`), launching Open Paw opens a setup panel for harness, model, Gradium key, hold-to-talk, and related defaults. **Continue** writes `config.json` with `"onboarded": true` (`chmod 0600`). Later launches skip the panel. Reset by setting `"onboarded": false` (or deleting the file).
+
+Hand-copy path (skips the panel because missing `onboarded` decodes as already done):
 
 ```bash
 mkdir -p ~/.config/open-paw
@@ -40,6 +44,7 @@ Edit `~/.config/open-paw/config.json`:
 
 | Field | Required | Description |
 |---|---|---|
+| `onboarded` | No | `true` after first-run Continue. Missing → treat as already set up. Set `false` to show setup again |
 | `gradium.api_key` | Yes | Gradium API key |
 | `harness` | No | `hermes` (default), `claude`, or `codex` |
 | `hermes.api_key` | If `harness` is hermes | Must match Hermes `API_SERVER_KEY` |
@@ -52,6 +57,7 @@ Edit `~/.config/open-paw/config.json`:
 | `hotkey.hold` | No | Default: hold **Right Option** to talk |
 | `hotkey.toggle` | No | Default: **Control+Option** wake/sleep |
 | `ui.idle_timeout_seconds` | No | Auto-sleep after idle (default 300) |
+| `ui.default_position` | No | `bottom-left`, `bottom-center`, or `bottom-right` (default) |
 
 **Environment fallback:** empty `api_key` fields fall back to `GRADIUM_API_KEY` and `HERMES_API_KEY`. This works when launching from a terminal; Finder / Dock launches do **not** inherit shell env.
 

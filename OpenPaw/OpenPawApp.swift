@@ -18,6 +18,7 @@ enum OpenPawMain {
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var manager: CompanionManager?
     private var statusItem: NSStatusItem?
+    private var onboarding: OnboardingPanelController?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         let config: AppConfig
@@ -28,7 +29,50 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             config = fallbackConfig()
         }
 
-        let manager = CompanionManager(config: applyArgv(config))
+        if AppConfig.needsOnboarding(config) {
+            // LSUIElement agent → regular so a real window + Dock icon exist.
+            // Defer one turn so AppKit finishes the policy flip before we show.
+            NSApp.setActivationPolicy(.regular)
+            let controller = OnboardingPanelController()
+            onboarding = controller
+            var seed = config
+            ProcessArgv.parse(CommandLine.arguments).apply(to: &seed)
+            let draft = OnboardingDraft.from(config: seed)
+            DispatchQueue.main.async { [weak self] in
+                guard let self else { return }
+                controller.present(draft: draft) { [weak self] finished in
+                    self?.finishOnboarding(base: config, draft: finished)
+                }
+            }
+            return
+        }
+
+        startCompanion(with: applyArgv(config))
+    }
+
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        if onboarding != nil {
+            onboarding?.bringToFront()
+            return false
+        }
+        return true
+    }
+
+    private func finishOnboarding(base: AppConfig, draft: OnboardingDraft) {
+        var cfg = base
+        draft.apply(to: &cfg)
+        do {
+            try cfg.save()
+        } catch {
+            NSLog("open-paw: failed to write config.json (%@)", error.localizedDescription)
+        }
+        onboarding = nil
+        NSApp.setActivationPolicy(.accessory)
+        startCompanion(with: applyArgv(cfg))
+    }
+
+    private func startCompanion(with config: AppConfig) {
+        let manager = CompanionManager(config: config)
         self.manager = manager
         manager.start()
 
@@ -81,7 +125,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 hold: KeyCombo(modifiers: [], key: "right_option"),
                 toggle: KeyCombo(modifiers: ["control", "option"], key: "option")
             ),
-            ui: UIConfig(buddySize: 80, defaultPosition: "bottom-right", idleTimeoutSeconds: 300)
+            ui: UIConfig(buddySize: 80, defaultPosition: "bottom-right", idleTimeoutSeconds: 300),
+            onboarded: false
         )
     }
 }

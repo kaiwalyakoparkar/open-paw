@@ -17,6 +17,7 @@ enum CheckMain {
         ObsidianNotesChecks.run()
         HarnessKindChecks.run()
         AppConfigHarnessChecks.run()
+        OnboardingChecks.run()
         LastUserTextChecks.run()
         CLIBinaryChecks.run()
         InfoPlistChecks.run()

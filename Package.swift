@@ -21,6 +21,9 @@ let package = Package(
             exclude: ["Info.plist"],
             resources: [
                 .copy("Resources/cat_avatar.png"),
+                .copy("Resources/harness_hermes.png"),
+                .copy("Resources/harness_claude.png"),
+                .copy("Resources/harness_codex.png"),
             ],
             linkerSettings: [
                 .linkedFramework("Carbon"),

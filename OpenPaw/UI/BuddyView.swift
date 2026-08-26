@@ -128,7 +128,7 @@ struct BuddyView: View {
 }
 
 /// Crops one frame from the 2×2 sprite sheet in `cat_avatar.png`.
-private enum CatSprite {
+enum CatSprite {
     private static let sheet: NSImage? = {
         Bundle.module.url(forResource: "cat_avatar", withExtension: "png")
             .flatMap { NSImage(contentsOf: $0) }

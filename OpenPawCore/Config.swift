@@ -9,6 +9,8 @@ public struct AppConfig: Codable, Equatable {
     public var harness: HarnessKind
     public var claude: CLIHarnessConfig
     public var codex: CLIHarnessConfig
+    /// False until first-run setup Continue; missing key in JSON → true (legacy installs).
+    public var onboarded: Bool
 
     public init(
         gradium: GradiumConfig,
@@ -17,7 +19,8 @@ public struct AppConfig: Codable, Equatable {
         ui: UIConfig,
         harness: HarnessKind = .hermes,
         claude: CLIHarnessConfig = .claudeDefault,
-        codex: CLIHarnessConfig = .codexDefault
+        codex: CLIHarnessConfig = .codexDefault,
+        onboarded: Bool = true
     ) {
         self.gradium = gradium
         self.hermes = hermes
@@ -26,10 +29,11 @@ public struct AppConfig: Codable, Equatable {
         self.harness = harness
         self.claude = claude
         self.codex = codex
+        self.onboarded = onboarded
     }
 
     enum CodingKeys: String, CodingKey {
-        case gradium, hermes, hotkey, ui, harness, claude, codex
+        case gradium, hermes, hotkey, ui, harness, claude, codex, onboarded
     }
 
     public init(from decoder: Decoder) throws {
@@ -43,6 +47,8 @@ public struct AppConfig: Codable, Equatable {
             .filled(defaultBin: "claude")
         codex = (try c.decodeIfPresent(CLIHarnessConfig.self, forKey: .codex) ?? .codexDefault)
             .filled(defaultBin: "codex")
+        // Missing key → already configured by hand (INSTALL copy).
+        onboarded = try c.decodeIfPresent(Bool.self, forKey: .onboarded) ?? true
     }
 
     public static func load(from url: URL = defaultURL()) throws -> AppConfig {
@@ -55,6 +61,23 @@ public struct AppConfig: Codable, Equatable {
     public static func defaultURL() -> URL {
         FileManager.default.homeDirectoryForCurrentUser
             .appendingPathComponent(".config/open-paw/config.json")
+    }
+
+    public static func needsOnboarding(_ config: AppConfig) -> Bool {
+        !config.onboarded
+    }
+
+    public func save(to url: URL = defaultURL()) throws {
+        let dir = url.deletingLastPathComponent()
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        let data = try encoder.encode(self)
+        try data.write(to: url, options: .atomic)
+        try FileManager.default.setAttributes(
+            [.posixPermissions: 0o600],
+            ofItemAtPath: url.path
+        )
     }
 
     public mutating func resolveSecretsFromEnvIfEmpty() {
