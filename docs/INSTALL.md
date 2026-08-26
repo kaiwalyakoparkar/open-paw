@@ -30,7 +30,7 @@ swift build --product OpenPaw
 
 Open Paw reads **`~/.config/open-paw/config.json`**.
 
-**First-run setup:** If the file is missing (or `"onboarded": false`), launching Open Paw opens a setup panel for harness, model, Gradium key, hold-to-talk, and related defaults. **Continue** writes `config.json` with `"onboarded": true` (`chmod 0600`). Later launches skip the panel. Reset by setting `"onboarded": false` (or deleting the file).
+**First-run setup:** If the file is missing (or `"onboarded": false`), launching Open Paw opens a setup panel for harness, model, Gradium key, hold-to-talk, and related defaults. **Continue** writes `config.json` with `"onboarded": true` (`chmod 0600`). Later launches skip the panel. Re-run anytime with `swift run OpenPaw --onboard`, or set `"onboarded": false` (or delete the file).
 
 Hand-copy path (skips the panel because missing `onboarded` decodes as already done):
 
@@ -44,7 +44,7 @@ Edit `~/.config/open-paw/config.json`:
 
 | Field | Required | Description |
 |---|---|---|
-| `onboarded` | No | `true` after first-run Continue. Missing → treat as already set up. Set `false` to show setup again |
+| `onboarded` | No | `true` after first-run Continue. Missing → treat as already set up. Set `false` or launch with `--onboard` to show setup again |
 | `gradium.api_key` | Yes | Gradium API key |
 | `harness` | No | `hermes` (default), `claude`, or `codex` |
 | `hermes.api_key` | If `harness` is hermes | Must match Hermes `API_SERVER_KEY` |
@@ -122,7 +122,7 @@ swift run OpenPaw --codex
 swift run OpenPaw --codex --terra    # or --sol / --luna
 ```
 
-`--claude` / `--codex` / `--hermes` override `harness` for **that process only**. Model shortcuts (`--opus`, `--terra`, …) and `--model NAME` are also process-only; see [README — Model names that work](../README.md#model-names-that-work).
+`--claude` / `--codex` / `--hermes` override `harness` for **that process only**. `--onboard` re-opens setup even after first-run Continue. Model shortcuts (`--opus`, `--terra`, …) and `--model NAME` are also process-only; see [README — Model names that work](../README.md#model-names-that-work).
 
 ## 4. macOS permissions
 

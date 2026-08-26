@@ -29,14 +29,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             config = fallbackConfig()
         }
 
-        if AppConfig.needsOnboarding(config) {
+        let argv = ProcessArgv.parse(CommandLine.arguments)
+        if AppConfig.needsOnboarding(config, argv: argv) {
             // LSUIElement agent → regular so a real window + Dock icon exist.
             // Defer one turn so AppKit finishes the policy flip before we show.
             NSApp.setActivationPolicy(.regular)
             let controller = OnboardingPanelController()
             onboarding = controller
             var seed = config
-            ProcessArgv.parse(CommandLine.arguments).apply(to: &seed)
+            argv.apply(to: &seed)
             let draft = OnboardingDraft.from(config: seed)
             DispatchQueue.main.async { [weak self] in
                 guard let self else { return }

@@ -33,6 +33,9 @@ enum OnboardingChecks {
         let legacy = try! JSONDecoder().decode(AppConfig.self, from: Data(old.utf8))
         assert(legacy.onboarded == true, "missing onboarded → true")
         assert(!AppConfig.needsOnboarding(legacy))
+        assert(!ProcessArgv.parse(["OpenPaw"]).onboard)
+        assert(ProcessArgv.parse(["OpenPaw", "--onboard"]).onboard)
+        assert(AppConfig.needsOnboarding(legacy, argv: ProcessArgv.parse(["--onboard"])))
 
         let notDone = """
         {

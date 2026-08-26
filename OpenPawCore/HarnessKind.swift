@@ -23,10 +23,12 @@ public enum HarnessKind: String, Codable, Equatable {
 public struct ProcessArgv: Equatable {
     public var harness: HarnessKind?
     public var model: String?
+    public var onboard: Bool
 
-    public init(harness: HarnessKind? = nil, model: String? = nil) {
+    public init(harness: HarnessKind? = nil, model: String? = nil, onboard: Bool = false) {
         self.harness = harness
         self.model = model
+        self.onboard = onboard
     }
 
     public static func parse(_ args: [String]) -> ProcessArgv {
@@ -45,6 +47,7 @@ public struct ProcessArgv: Equatable {
             case "--sol": found.harness = .codex; found.model = "gpt-5.6-sol"
             case "--terra": found.harness = .codex; found.model = "gpt-5.6-terra"
             case "--luna": found.harness = .codex; found.model = "gpt-5.6-luna"
+            case "--onboard": found.onboard = true
             case "--model":
                 let n = i + 1
                 if n < args.count, !args[n].hasPrefix("-") {

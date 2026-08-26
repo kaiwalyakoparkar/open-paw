@@ -63,8 +63,8 @@ public struct AppConfig: Codable, Equatable {
             .appendingPathComponent(".config/open-paw/config.json")
     }
 
-    public static func needsOnboarding(_ config: AppConfig) -> Bool {
-        !config.onboarded
+    public static func needsOnboarding(_ config: AppConfig, argv: ProcessArgv = ProcessArgv()) -> Bool {
+        argv.onboard || !config.onboarded
     }
 
     public func save(to url: URL = defaultURL()) throws {
