@@ -48,7 +48,8 @@ public final class HermesAPIClient: AgentHarness, @unchecked Sendable {
         messages: [ChatMessage],
         onDelta: @escaping (String) -> Void,
         onTool: @escaping (ToolCallDelta) -> Void,
-        onProgress: @escaping (String) -> Void = { _ in }
+        onProgress: @escaping (String) -> Void = { _ in },
+        onUsage: @escaping (Int) -> Void = { _ in }
     ) async throws -> StreamResult {
         await clearGate.awaitIfNeeded()
 
@@ -65,6 +66,7 @@ public final class HermesAPIClient: AgentHarness, @unchecked Sendable {
         let body: [String: Any] = [
             "model": config.model,
             "stream": true,
+            "stream_options": ["include_usage": true],
             "messages": try HermesSystemPrompt.withSystem(messages).map { try jsonObject($0) },
         ]
         req.httpBody = try JSONSerialization.data(withJSONObject: body)
@@ -76,7 +78,12 @@ public final class HermesAPIClient: AgentHarness, @unchecked Sendable {
         defer { scheduleClear() }
 
         return try await withCheckedThrowingContinuation { cont in
-            let delegate = StreamDelegate(onDelta: onDelta, onTool: onTool, onProgress: onProgress) { result in
+            let delegate = StreamDelegate(
+                onDelta: onDelta,
+                onTool: onTool,
+                onProgress: onProgress,
+                onUsage: onUsage
+            ) { result in
                 cont.resume(with: result)
             }
             let s = URLSession(configuration: cfg, delegate: delegate, delegateQueue: nil)
@@ -120,6 +127,7 @@ private final class StreamDelegate: NSObject, URLSessionDataDelegate {
     private let onDelta: (String) -> Void
     private let onTool: (ToolCallDelta) -> Void
     private let onProgress: (String) -> Void
+    private let onUsage: (Int) -> Void
     private let finish: (Result<StreamResult, Error>) -> Void
     private var finished = false
 
@@ -127,11 +135,13 @@ private final class StreamDelegate: NSObject, URLSessionDataDelegate {
         onDelta: @escaping (String) -> Void,
         onTool: @escaping (ToolCallDelta) -> Void,
         onProgress: @escaping (String) -> Void,
+        onUsage: @escaping (Int) -> Void,
         finish: @escaping (Result<StreamResult, Error>) -> Void
     ) {
         self.onDelta = onDelta
         self.onTool = onTool
         self.onProgress = onProgress
+        self.onUsage = onUsage
         self.finish = finish
     }
 
@@ -174,6 +184,9 @@ private final class StreamDelegate: NSObject, URLSessionDataDelegate {
                 if !ev.progress.isEmpty {
                     sawTool = true
                     onProgress(ev.progress)
+                }
+                if let tokens = ev.outputTokens {
+                    onUsage(tokens)
                 }
                 if ev.finished {
                     emitFlush()

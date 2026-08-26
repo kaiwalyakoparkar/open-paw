@@ -10,6 +10,8 @@ final class BuddyViewModel: ObservableObject {
     @Published var holdKeyLabel: String = "⌥"
     @Published var annotateHasStrokes = false
     @Published var annotateListening = false
+    @Published var waitSeconds: Int = 0
+    @Published var outputTokens: Int? = nil
 }
 
 struct BuddyView: View {
@@ -34,6 +36,8 @@ struct BuddyView: View {
                     isHoldingKey: model.isHoldingKey,
                     holdKeyLabel: model.holdKeyLabel,
                     annotateListening: model.annotateListening,
+                    waitSeconds: model.waitSeconds,
+                    outputTokens: model.outputTokens,
                     onStop: onStop,
                     onAnnotate: onAnnotate
                 )
@@ -65,7 +69,6 @@ struct BuddyView: View {
 
     private var ringGlow: Color {
         if model.annotateListening || model.state == .listening { return .green.opacity(0.45) }
-        if model.state == .thinking { return .orange.opacity(0.35) }
         return .clear
     }
 

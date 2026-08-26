@@ -8,6 +8,7 @@ public enum HermesSSEParser {
         public var toolCalls: [ToolCallDelta]
         public var finished: Bool
         public var progress: String = ""
+        public var outputTokens: Int? = nil
     }
 
     public static func parse(line: String, event: String? = nil) -> Event? {
@@ -29,9 +30,13 @@ public enum HermesSSEParser {
             return Event(textDelta: "", toolCalls: [], finished: false, progress: progressText(obj))
         }
 
+        let tokens = outputTokens(from: obj["usage"])
+
         guard let choices = obj["choices"] as? [[String: Any]],
               let first = choices.first
-        else { return Event(textDelta: "", toolCalls: [], finished: false) }
+        else {
+            return Event(textDelta: "", toolCalls: [], finished: false, outputTokens: tokens)
+        }
 
         let finish = first["finish_reason"] as? String
         let delta = first["delta"] as? [String: Any] ?? [:]
@@ -50,7 +55,12 @@ public enum HermesSSEParser {
                 ))
             }
         }
-        return Event(textDelta: text, toolCalls: tools, finished: finish != nil && finish != "null")
+        return Event(
+            textDelta: text,
+            toolCalls: tools,
+            finished: finish != nil && finish != "null",
+            outputTokens: tokens
+        )
     }
 
     static func errorMessage(_ err: Any) -> String {
@@ -67,15 +77,49 @@ public enum HermesSSEParser {
         let emoji = obj["emoji"] as? String ?? ""
         return emoji.isEmpty ? label : "\(emoji) \(label)"
     }
+
+    /// OpenAI-style `completion_tokens` or Claude-style `output_tokens`.
+    public static func outputTokens(from usage: Any?) -> Int? {
+        guard let u = usage as? [String: Any] else { return nil }
+        if let n = u["completion_tokens"] as? Int { return n }
+        if let n = u["output_tokens"] as? Int { return n }
+        if let n = u["completion_tokens"] as? Double { return Int(n) }
+        if let n = u["output_tokens"] as? Double { return Int(n) }
+        return nil
+    }
 }
 
 public enum HermesProgress {
-    public static func waitBubble(prompt: String, status: String, seconds: Int) -> String {
-        var parts: [String] = []
-        let p = prompt.trimmingCharacters(in: .whitespacesAndNewlines)
-        if !p.isEmpty { parts.append(p) }
-        if !status.isEmpty { parts.append(status) }
-        parts.append("Working… \(seconds)s")
-        return parts.joined(separator: "\n\n")
+    /// Cat-themed wait verbs; rotate by elapsed seconds.
+    public static let thinkingVerbs = ["Kneading…", "Pawing…", "Pondering…", "Hunting…"]
+    /// Seconds each verb stays before the next.
+    public static let thinkingVerbInterval = 3
+
+    public static func formatDuration(_ seconds: Int) -> String {
+        let s = max(0, seconds)
+        if s < 60 { return "\(s)s" }
+        return "\(s / 60)m \(s % 60)s"
+    }
+
+    public static func formatTokens(_ count: Int) -> String {
+        let n = max(0, count)
+        if n < 1000 { return "\(n)" }
+        let tenths = (n + 50) / 100
+        if tenths % 10 == 0 { return "\(tenths / 10)k" }
+        return "\(tenths / 10).\(tenths % 10)k"
+    }
+
+    public static func thinkingVerb(atSeconds seconds: Int) -> String {
+        let verbs = thinkingVerbs
+        let idx = max(0, seconds) / thinkingVerbInterval % verbs.count
+        return verbs[idx]
+    }
+
+    public static func thinkingStatus(seconds: Int, outputTokens: Int?) -> String {
+        var meta = formatDuration(seconds)
+        if let tokens = outputTokens {
+            meta += " · ↓ \(formatTokens(tokens)) tokens"
+        }
+        return "\(thinkingVerb(atSeconds: seconds)) (\(meta))"
     }
 }

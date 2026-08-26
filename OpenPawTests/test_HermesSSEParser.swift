@@ -22,10 +22,27 @@ enum HermesSSEParserChecks {
         )
         assert(done?.progress == "web done", "done: \(done?.progress ?? "nil")")
 
-        let wait = HermesProgress.waitBubble(prompt: "What is api management", status: "🔍 search APIs", seconds: 8)
-        assert(wait.contains("What is api management"))
-        assert(wait.contains("🔍 search APIs"))
-        assert(wait.contains("Working… 8s"))
+        assert(HermesProgress.thinkingVerb(atSeconds: 0) == "Kneading…")
+        assert(HermesProgress.thinkingVerb(atSeconds: 2) == "Kneading…")
+        assert(HermesProgress.thinkingVerb(atSeconds: 3) == "Pawing…")
+        assert(HermesProgress.thinkingVerb(atSeconds: 6) == "Pondering…")
+        assert(HermesProgress.thinkingVerb(atSeconds: 9) == "Hunting…")
+        assert(HermesProgress.thinkingVerb(atSeconds: 12) == "Kneading…")
+        let wait = HermesProgress.thinkingStatus(seconds: 8, outputTokens: nil)
+        assert(wait == "Pondering… (8s)", wait)
+        assert(HermesProgress.formatDuration(7) == "7s")
+        assert(HermesProgress.formatDuration(180) == "3m 0s")
+        assert(HermesProgress.formatTokens(2700) == "2.7k")
+        assert(
+            HermesProgress.thinkingStatus(seconds: 180, outputTokens: 2700)
+                == "Kneading… (3m 0s · ↓ 2.7k tokens)"
+        )
+
+        let usageLine = #"data: {"choices":[],"usage":{"prompt_tokens":12,"completion_tokens":2700}}"#
+        let usage = HermesSSEParser.parse(line: usageLine)
+        assert(usage?.outputTokens == 2700, "usage: \(usage?.outputTokens.map(String.init) ?? "nil")")
+        assert(usage?.textDelta == "")
+        assert(usage?.finished == false)
 
         let nullErr = #"data: {"choices":[{"delta":{"content":"Hi"}}],"error":null}"#
         let nullEv = HermesSSEParser.parse(line: nullErr)

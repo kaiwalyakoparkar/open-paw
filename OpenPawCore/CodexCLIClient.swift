@@ -50,7 +50,8 @@ public final class CodexCLIClient: AgentHarness, @unchecked Sendable {
         messages: [ChatMessage],
         onDelta: @escaping (String) -> Void,
         onTool: @escaping (ToolCallDelta) -> Void,
-        onProgress: @escaping (String) -> Void
+        onProgress: @escaping (String) -> Void,
+        onUsage: @escaping (Int) -> Void
     ) async throws -> StreamResult {
         await clearGate.awaitIfNeeded()
 
@@ -92,6 +93,9 @@ public final class CodexCLIClient: AgentHarness, @unchecked Sendable {
             if !ev.progress.isEmpty {
                 sawTool = true
                 onProgress(ev.progress)
+            }
+            if let tokens = ev.outputTokens {
+                onUsage(tokens)
             }
             if let err = ev.errorMessage { streamError = err }
         }

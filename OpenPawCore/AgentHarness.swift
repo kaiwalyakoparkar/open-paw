@@ -17,7 +17,8 @@ public protocol AgentHarness: AnyObject {
         messages: [ChatMessage],
         onDelta: @escaping (String) -> Void,
         onTool: @escaping (ToolCallDelta) -> Void,
-        onProgress: @escaping (String) -> Void
+        onProgress: @escaping (String) -> Void,
+        onUsage: @escaping (Int) -> Void
     ) async throws -> StreamResult
 }
 

@@ -135,11 +135,9 @@ final class BuddyWindow: NSPanel {
         model.state != .idle || model.bubble.isVisible || model.isHoldingKey
     }
 
-    /// Wait/error keep the 200pt floor. Answers hug so leftover black doesn't sit under the text.
+    /// Error keeps the floor. Thinking hugs like listening — no empty wait blob.
     private var hugsListeningHeight: Bool {
         if case .error = model.bubble { return false }
-        if case .processing = model.bubble { return false }
-        if model.state == .thinking { return false }
         return true
     }
 
@@ -239,6 +237,16 @@ final class BuddyWindow: NSPanel {
     func setBubble(_ content: BubbleContent) {
         model.bubble = content
         syncLayoutIfNeeded()
+    }
+
+    func setWaitProgress(seconds: Int, outputTokens: Int?) {
+        model.waitSeconds = seconds
+        model.outputTokens = outputTokens
+    }
+
+    func clearWaitProgress() {
+        model.waitSeconds = 0
+        model.outputTokens = nil
     }
 
     func setMicLevel(_ level: Float) {

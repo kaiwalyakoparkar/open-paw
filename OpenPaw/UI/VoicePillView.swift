@@ -8,15 +8,15 @@ struct VoicePillView: View {
     var isHoldingKey: Bool
     var holdKeyLabel: String
     var annotateListening: Bool = false
+    var waitSeconds: Int = 0
+    var outputTokens: Int? = nil
     var onStop: () -> Void
     var onAnnotate: () -> Void
 
-    private var isAskListening: Bool { annotateListening }
+    /// Claude-like muted salmon for thinking status.
+    private static let thinkingTint = Color(red: 0.91, green: 0.55, blue: 0.52)
 
-    private var isProcessing: Bool {
-        if case .processing = bubble { return true }
-        return false
-    }
+    private var isAskListening: Bool { annotateListening }
 
     private var isError: Bool {
         if case .error = bubble { return true }
@@ -132,12 +132,8 @@ struct VoicePillView: View {
                     .font(.system(size: bodyFontSize, design: .rounded))
                     .foregroundStyle(.white.opacity(0.55))
                     .italic()
-            } else if state == .thinking || isProcessing {
-                Text("Processing your request…")
-                    .font(.system(size: bodyFontSize, design: .rounded))
-                    .foregroundStyle(.white.opacity(0.75))
-                    .italic()
             }
+            // thinking: header row only — no body copy
         }
         .padding(.horizontal, 16)
         .padding(.vertical, isError ? 10 : 12)
@@ -148,9 +144,9 @@ struct VoicePillView: View {
         .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(pillBorder, lineWidth: 1))
     }
 
-    /// Wait/error keep the floor. Everything else hugs the body — no empty black under the answer.
+    /// Error keeps the floor. Thinking hugs like listening — no empty black wait blob.
     private var hugsListeningHeight: Bool {
-        if isError || isProcessing || state == .thinking { return false }
+        if isError { return false }
         return true
     }
 
@@ -160,7 +156,7 @@ struct VoicePillView: View {
         case .thinking:
             ProgressView()
                 .controlSize(.small)
-                .tint(.orange)
+                .tint(Self.thinkingTint)
         case .listening:
             Image(systemName: "mic.fill")
                 .font(.system(size: 13, weight: .bold))
@@ -197,7 +193,8 @@ struct VoicePillView: View {
         switch state {
         case .idle: return "Ready"
         case .listening: return isHoldingKey ? "Recording" : "Listening"
-        case .thinking: return "Thinking…"
+        case .thinking:
+            return HermesProgress.thinkingStatus(seconds: waitSeconds, outputTokens: outputTokens)
         case .speaking: return "Speaking"
         case .annotate: return isAskListening ? "Listening" : "Draw on screen"
         }
@@ -206,7 +203,7 @@ struct VoicePillView: View {
     private var statusColor: Color {
         switch state {
         case .listening: .green
-        case .thinking: .orange
+        case .thinking: Self.thinkingTint
         case .speaking: .blue
         case .annotate: isAskListening ? .green : .purple
         default: .white.opacity(0.7)
@@ -216,7 +213,7 @@ struct VoicePillView: View {
     private var pillFill: Color {
         if case .error = bubble { return Color.red.opacity(0.75) }
         switch state {
-        case .thinking: return Color.orange.opacity(0.82)
+        case .thinking: return Color(white: 0.15, opacity: 0.88)
         case .speaking: return Color(white: 0.12, opacity: 0.92)
         case .listening: return Color(white: 0.15, opacity: 0.88)
         case .annotate: return isAskListening ? Color(white: 0.15, opacity: 0.88) : Color.purple.opacity(0.35)
@@ -227,7 +224,7 @@ struct VoicePillView: View {
     private var pillBorder: Color {
         if case .error = bubble { return .red.opacity(0.6) }
         switch state {
-        case .thinking: return .orange.opacity(0.55)
+        case .thinking: return .white.opacity(0.18)
         case .speaking: return .white.opacity(0.22)
         case .listening: return .green.opacity(0.45)
         case .annotate: return isAskListening ? .green.opacity(0.45) : .white.opacity(0.15)

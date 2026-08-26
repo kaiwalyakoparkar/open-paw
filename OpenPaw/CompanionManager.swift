@@ -34,10 +34,10 @@ final class CompanionManager: NSObject {
     private var vad: VADLogic
     private var currentAssistant = ""
     private var toolNotes = ""
-    private var spokenPrompt = ""
     private var waitStatus = ""
     private var waitStarted = Date()
     private var waitTimer: Timer?
+    private var waitOutputTokens: Int?
     private var listenTask: Task<Void, Never>?
     private var turnLocked = false
     private var listeningAnnotate = false
@@ -214,9 +214,10 @@ final class CompanionManager: NSObject {
         messages.removeAll()
         currentAssistant = ""
         toolNotes = ""
-        spokenPrompt = ""
         waitStatus = ""
+        waitOutputTokens = nil
         stopWaitProgress()
+        buddy?.clearWaitProgress()
         sentence = SentenceBuffer()
         vad.reset()
         listeningAnnotate = false
@@ -312,10 +313,9 @@ final class CompanionManager: NSObject {
             state = .idle
             return
         }
-        let label = spoken ?? "Explain this"
-        buddy?.setBubble(.processing(label))
-        spokenPrompt = label
+        buddy?.setBubble(.processing(""))
         waitStatus = ""
+        waitOutputTokens = nil
         state = .thinking
 
         messages.append(ChatMessage(role: "user", content: .parts([.text(prompt)])))
@@ -581,9 +581,9 @@ final class CompanionManager: NSObject {
             return
         }
 
-        buddy?.setBubble(.processing(text))
-        spokenPrompt = text
+        buddy?.setBubble(.processing(""))
         waitStatus = ""
+        waitOutputTokens = nil
         state = .thinking
 
         if annotate {
@@ -623,6 +623,13 @@ final class CompanionManager: NSObject {
                     Task { @MainActor in
                         guard let self, self.currentAssistant.isEmpty else { return }
                         self.waitStatus = p
+                    }
+                },
+                onUsage: { [weak self] tokens in
+                    Task { @MainActor in
+                        guard let self, self.state == .thinking, self.currentAssistant.isEmpty else { return }
+                        // Claude emits per-assistant-turn usage during tool loops — sum them.
+                        self.waitOutputTokens = (self.waitOutputTokens ?? 0) + tokens
                         self.refreshWaitBubble()
                     }
                 }
@@ -643,6 +650,7 @@ final class CompanionManager: NSObject {
 
     private func startWaitProgress() {
         waitStarted = Date()
+        waitOutputTokens = nil
         waitTimer?.invalidate()
         waitTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
             Task { @MainActor in self?.refreshWaitBubble() }
@@ -653,16 +661,14 @@ final class CompanionManager: NSObject {
     private func refreshWaitBubble() {
         guard state == .thinking, currentAssistant.isEmpty else { return }
         let seconds = Int(Date().timeIntervalSince(waitStarted))
-        buddy?.setBubble(.processing(HermesProgress.waitBubble(
-            prompt: spokenPrompt,
-            status: waitStatus,
-            seconds: seconds
-        )))
+        buddy?.setBubble(.processing(""))
+        buddy?.setWaitProgress(seconds: seconds, outputTokens: waitOutputTokens)
     }
 
     private func stopWaitProgress() {
         waitTimer?.invalidate()
         waitTimer = nil
+        buddy?.clearWaitProgress()
     }
 
     private func onHermesDelta(_ d: String) {

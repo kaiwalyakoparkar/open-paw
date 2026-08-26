@@ -23,7 +23,12 @@ public enum CodexStreamParser {
             return nil
         case "turn.completed", "turn.failed":
             let err = type == "turn.failed" ? (Self.errorMessage(obj["error"]) ?? "turn failed") : nil
-            return CLIStreamEvent(sessionID: thread, finished: true, errorMessage: err)
+            return CLIStreamEvent(
+                sessionID: thread,
+                finished: true,
+                errorMessage: err,
+                outputTokens: HermesSSEParser.outputTokens(from: obj["usage"])
+            )
         case "error":
             let msg = Self.errorMessage(obj["message"] ?? obj["error"]) ?? "error"
             return CLIStreamEvent(sessionID: thread, finished: true, errorMessage: msg)

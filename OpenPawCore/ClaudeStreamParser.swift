@@ -8,6 +8,7 @@ public struct CLIStreamEvent: Equatable {
     public var finished: Bool
     public var isPartial: Bool
     public var errorMessage: String?
+    public var outputTokens: Int?
 
     public init(
         textDelta: String = "",
@@ -16,7 +17,8 @@ public struct CLIStreamEvent: Equatable {
         sessionID: String? = nil,
         finished: Bool = false,
         isPartial: Bool = false,
-        errorMessage: String? = nil
+        errorMessage: String? = nil,
+        outputTokens: Int? = nil
     ) {
         self.textDelta = textDelta
         self.toolCalls = toolCalls
@@ -25,11 +27,12 @@ public struct CLIStreamEvent: Equatable {
         self.finished = finished
         self.isPartial = isPartial
         self.errorMessage = errorMessage
+        self.outputTokens = outputTokens
     }
 
     var isEmpty: Bool {
         textDelta.isEmpty && toolCalls.isEmpty && progress.isEmpty && sessionID == nil
-            && !finished && errorMessage == nil
+            && !finished && errorMessage == nil && outputTokens == nil
     }
 }
 
@@ -56,6 +59,11 @@ public enum ClaudeStreamParser {
                 return CLIStreamEvent(textDelta: text, sessionID: session, isPartial: true)
             }
             return nil
+        case "message_delta":
+            // Final-per-message usage; assistant snapshot usually follows with the same counts.
+            let tokens = HermesSSEParser.outputTokens(from: obj["usage"])
+                ?? HermesSSEParser.outputTokens(from: (obj["delta"] as? [String: Any])?["usage"])
+            return tokens.map { CLIStreamEvent(sessionID: session, outputTokens: $0) }
         case "assistant":
             return parseAssistant(obj, session: session)
         case "result":
@@ -64,7 +72,8 @@ public enum ClaudeStreamParser {
             return CLIStreamEvent(
                 sessionID: session,
                 finished: true,
-                errorMessage: err ? (resultText ?? "error") : nil
+                errorMessage: err ? (resultText ?? "error") : nil,
+                outputTokens: HermesSSEParser.outputTokens(from: obj["usage"])
             )
         default:
             if let content = obj["content"] as? [[String: Any]] {
@@ -79,8 +88,9 @@ public enum ClaudeStreamParser {
         session: String?,
         content: [[String: Any]]? = nil
     ) -> CLIStreamEvent? {
+        let message = obj["message"] as? [String: Any]
         let blocks = content
-            ?? (obj["message"] as? [String: Any]).flatMap { $0["content"] as? [[String: Any]] }
+            ?? message.flatMap { $0["content"] as? [[String: Any]] }
             ?? []
         var text = ""
         var tools: [ToolCallDelta] = []
@@ -95,12 +105,17 @@ public enum ClaudeStreamParser {
                 if let name { progress = name }
             }
         }
+        // Claude CLI puts per-turn usage on message.usage — available during tool loops
+        // while the pill is still thinking (often before any user-visible text).
+        let tokens = HermesSSEParser.outputTokens(from: message?["usage"])
+            ?? HermesSSEParser.outputTokens(from: obj["usage"])
         let ev = CLIStreamEvent(
             textDelta: text,
             toolCalls: tools,
             progress: progress,
             sessionID: session,
-            isPartial: false
+            isPartial: false,
+            outputTokens: tokens
         )
         return ev.isEmpty ? nil : ev
     }

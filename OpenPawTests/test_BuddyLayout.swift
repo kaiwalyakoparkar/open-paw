@@ -54,6 +54,7 @@ enum BuddyLayoutChecks {
         errorUsesStableExpandedSize()
         dragKeepsFullBubbleOnScreen()
         listeningHugsInsteadOfWaitFloor()
+        thinkingHugsLikeListening()
         annotateHugsInsteadOfWaitFloor()
         answerHugsInsteadOfWaitFloor()
         longAnswerWindowMatchesScrollCap()
@@ -301,6 +302,29 @@ enum BuddyLayoutChecks {
         )
         assert(withTranscript.height > listen.height)
         assert(withTranscript.height < wait.height)
+    }
+
+    /// Thinking uses the same hug path as listening — Claude-style status line, not 200pt floor.
+    private static func thinkingHugsLikeListening() {
+        let avatar: CGFloat = 80
+        let wait = BuddyLayout.fixedExpandedSize(avatarSize: avatar)
+        let think = BuddyLayout.expandedWindowSize(
+            bodyHeight: BuddyLayout.bodyHeight(for: ""),
+            avatarSize: avatar,
+            maxHeight: 2000,
+            minPillHeight: 0
+        )
+        let listen = BuddyLayout.expandedWindowSize(
+            bodyHeight: BuddyLayout.bodyHeight(for: ""),
+            avatarSize: avatar,
+            maxHeight: 2000,
+            minPillHeight: 0
+        )
+        assert(think.height == listen.height)
+        assert(
+            think.height < wait.height,
+            "thinking must hug like listening, not wait floor: \(think.height) vs \(wait.height)"
+        )
     }
 
     /// Annotate is a status bar + Done chip — hug, don't keep the empty 200pt purple body.

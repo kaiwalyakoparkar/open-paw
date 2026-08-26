@@ -17,8 +17,10 @@ enum CodexStreamParserChecks {
         let tool = #"{"type":"item.completed","item":{"type":"mcp_tool_call","name":"Read","id":"1"}}"#
         assert(CodexStreamParser.parse(line: tool)?.toolCalls.first?.name == "Read")
 
-        let turn = #"{"type":"turn.completed"}"#
-        assert(CodexStreamParser.parse(line: turn)?.finished == true)
+        let turn = #"{"type":"turn.completed","usage":{"input_tokens":5,"output_tokens":1200}}"#
+        let t = CodexStreamParser.parse(line: turn)
+        assert(t?.finished == true)
+        assert(t?.outputTokens == 1200, "turn usage: \(t?.outputTokens.map(String.init) ?? "nil")")
 
         let failed = #"{"type":"turn.failed","error":{"message":"You've hit your usage limit."}}"#
         let f = CodexStreamParser.parse(line: failed)
