@@ -6,11 +6,36 @@ import SwiftUI
 enum OpenPawMain {
     static func main() {
         AppRelaunch.execFromBundleIfNeeded()
+        let argv = ProcessArgv.parse(CommandLine.arguments)
+        if argv.ttsTest {
+            runTTSTestAndExit()
+            return
+        }
         let app = NSApplication.shared
         app.setActivationPolicy(.accessory)
         let delegate = AppDelegate()
         app.delegate = delegate
         app.run()
+    }
+
+    private static func runTTSTestAndExit() {
+        let config: GradiumConfig
+        do {
+            config = try AppConfig.load().gradium
+        } catch {
+            fputs("open-paw tts-test: config load failed: \(error.localizedDescription)\n", stderr)
+            exit(1)
+        }
+        var ok = false
+        let done = DispatchSemaphore(value: 0)
+        Task { @MainActor in
+            ok = await TTSSmokeTest.run(config: config)
+            done.signal()
+        }
+        while done.wait(timeout: .now()) != .success {
+            RunLoop.main.run(mode: .default, before: Date().addingTimeInterval(0.05))
+        }
+        exit(ok ? 0 : 1)
     }
 }
 

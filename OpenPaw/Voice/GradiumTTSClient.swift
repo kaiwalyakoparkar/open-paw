@@ -2,190 +2,154 @@ import AVFoundation
 import Foundation
 import OpenPawCore
 
-final class GradiumTTSClient {
+/// Gradium REST TTS with batched text + parallel prefetch + ordered playback.
+final class GradiumTTSClient: NSObject, AVAudioPlayerDelegate {
     private let config: GradiumConfig
-    private var ws: URLSessionWebSocketTask?
-    private let engine = AVAudioEngine()
-    private let player = AVAudioPlayerNode()
-    private var audioStarted = false
     private var stopped = false
-    private var ready = false
-    private var readyContinuation: CheckedContinuation<Void, Error>?
-    /// Serializes connect + send so concurrent speak() calls don't race the socket.
-    private var sendChain: Task<Void, Never>?
+    private var started = false
+    private var chunkBuffer = TTSChunkBuffer()
+    private var coalesceTask: Task<Void, Never>?
+
+    private var synthSeq: UInt64 = 0
+    private var playSeq: UInt64 = 0
+    private var audioBySeq: [UInt64: Data] = [:]
+    private var pending: [AVAudioPlayer] = []
+    private var current: AVAudioPlayer?
+
+    /// ponytail: 120ms coalesce — batch fragments without waiting for full minChars
+    private let coalesceNs: UInt64 = 120_000_000
 
     init(config: GradiumConfig) {
         self.config = config
-        engine.attach(player)
-        let fmt = AVAudioFormat(commonFormat: .pcmFormatFloat32, sampleRate: 48000, channels: 1, interleaved: false)!
-        engine.connect(player, to: engine.mainMixerNode, format: fmt)
+        super.init()
     }
 
     func speak(_ sentence: String) {
         let text = sentence.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { return }
-        sendChain = Task { [weak self] in
-            _ = await self?.sendChain?.value
-            await self?.send(text)
+        stopped = false
+        let chunks: [String]
+        if started {
+            chunks = chunkBuffer.push(text + " ")
+        } else {
+            started = true
+            chunks = chunkBuffer.pushFirst(text + " ")
         }
+        for c in chunks { startSynthesis(c) }
+        scheduleCoalesce()
+    }
+
+    func finishSpeaking() {
+        coalesceTask?.cancel()
+        coalesceTask = nil
+        if let rest = chunkBuffer.flush() { startSynthesis(rest) }
+        started = false
     }
 
     func stop() {
         stopped = true
-        ready = false
-        sendChain?.cancel()
-        sendChain = nil
-        if let readyContinuation {
-            self.readyContinuation = nil
-            readyContinuation.resume(throwing: CancellationError())
+        started = false
+        coalesceTask?.cancel()
+        coalesceTask = nil
+        chunkBuffer = TTSChunkBuffer()
+        synthSeq = 0
+        playSeq = 0
+        audioBySeq.removeAll()
+        DispatchQueue.main.async { [weak self] in
+            self?.current?.stop()
+            self?.current = nil
+            self?.pending.forEach { $0.stop() }
+            self?.pending.removeAll()
         }
-        player.stop()
-        ws?.cancel(with: .goingAway, reason: nil)
-        ws = nil
-        if engine.isRunning { engine.stop() }
-        audioStarted = false
     }
 
-    private func send(_ text: String) async {
-        guard !stopped, !Task.isCancelled else { return }
+    private func scheduleCoalesce() {
+        coalesceTask?.cancel()
+        coalesceTask = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: self?.coalesceNs ?? 120_000_000)
+            guard let self, !self.stopped else { return }
+            let chunks = self.chunkBuffer.emitReady()
+            for c in chunks { self.startSynthesis(c) }
+        }
+    }
+
+    private func startSynthesis(_ text: String) {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        let seq = synthSeq
+        synthSeq += 1
+        Task { [weak self] in
+            await self?.synthesize(trimmed, seq: seq)
+        }
+    }
+
+    private func synthesize(_ text: String, seq: UInt64) async {
+        guard !stopped else { return }
         do {
-            if ws == nil || !ready { try await connect() }
-            guard !stopped, !Task.isCancelled, let ws else { return }
-            let payload = try JSONSerialization.data(withJSONObject: ["text": text])
-            try await ws.send(.string(String(data: payload, encoding: .utf8) ?? ""))
-        } catch is CancellationError {
-            return
+            let audio = try await GradiumTTSSynthesize.fetch(text: text, config: config)
+            guard !stopped else { return }
+            await MainActor.run { [weak self] in
+                self?.audioBySeq[seq] = audio
+                self?.drainOrderedPlayback()
+            }
         } catch {
-            guard !stopped, !Task.isCancelled else { return }
-            // One reconnect attempt for transient disconnects.
-            ws?.cancel(with: .goingAway, reason: nil)
-            ws = nil
-            ready = false
-            do {
-                try await connect()
-                guard !stopped, !Task.isCancelled, let ws else { return }
-                let payload = try JSONSerialization.data(withJSONObject: ["text": text])
-                try await ws.send(.string(String(data: payload, encoding: .utf8) ?? ""))
-            } catch is CancellationError {
-                return
-            } catch {
-                guard !stopped else { return }
-                NSLog("open-paw tts: %@", error.localizedDescription)
+            guard !stopped else { return }
+            NSLog("open-paw tts: %@", error.localizedDescription)
+            await MainActor.run { [weak self] in
+                self?.skipMissing(seq: seq)
             }
         }
     }
 
-    private func connect() async throws {
-        guard !config.apiKey.isEmpty else { throw URLError(.userAuthenticationRequired) }
-        stopped = false
-        guard let url = URL(string: "wss://api.gradium.ai/api/speech/tts") else { throw URLError(.badURL) }
-        var req = URLRequest(url: url)
-        req.setValue(config.apiKey, forHTTPHeaderField: "x-api-key")
-        let task = URLSession.shared.webSocketTask(with: req)
-        ws = task
-        ready = false
-        task.resume()
-        receiveLoop()
+    @MainActor
+    private func skipMissing(seq: UInt64) {
+        guard seq == playSeq else { return }
+        playSeq += 1
+        drainOrderedPlayback()
+    }
 
-        try await withCheckedThrowingContinuation { (cont: CheckedContinuation<Void, Error>) in
-            readyContinuation = cont
-            Task {
-                do {
-                    let setup: [String: Any] = [
-                        "type": "setup",
-                        "model_name": "default",
-                        "voice_id": config.tts.voiceId,
-                        "output_format": "pcm",
-                    ]
-                    let data = try JSONSerialization.data(withJSONObject: setup)
-                    try await task.send(.string(String(data: data, encoding: .utf8) ?? "{}"))
-                } catch {
-                    if let readyContinuation = self.readyContinuation {
-                        self.readyContinuation = nil
-                        readyContinuation.resume(throwing: error)
-                    }
-                }
-            }
+    @MainActor
+    private func drainOrderedPlayback() {
+        while let audio = audioBySeq.removeValue(forKey: playSeq) {
+            enqueue(audio)
+            playSeq += 1
         }
     }
 
-    private func receiveLoop() {
-        ws?.receive { [weak self] result in
+    @MainActor
+    private func enqueue(_ data: Data) {
+        guard !stopped else { return }
+        guard let player = try? AVAudioPlayer(data: data) else {
+            NSLog("open-paw tts audio: decode failed (%d bytes)", data.count)
+            return
+        }
+        player.delegate = self
+        pending.append(player)
+        playNextIfIdle()
+    }
+
+    @MainActor
+    private func playNextIfIdle() {
+        guard current?.isPlaying != true else { return }
+        guard !pending.isEmpty else {
+            current = nil
+            return
+        }
+        let next = pending.removeFirst()
+        current = next
+        next.prepareToPlay()
+        if !next.play() {
+            NSLog("open-paw tts audio: play() returned false")
+            current = nil
+            playNextIfIdle()
+        }
+    }
+
+    func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool) {
+        Task { @MainActor [weak self] in
             guard let self else { return }
-            switch result {
-            case .failure:
-                self.ready = false
-                if let readyContinuation = self.readyContinuation {
-                    self.readyContinuation = nil
-                    readyContinuation.resume(throwing: URLError(.networkConnectionLost))
-                }
-            case .success(let msg):
-                self.handle(msg)
-                if !self.stopped { self.receiveLoop() }
-            }
+            if self.current === player { self.current = nil }
+            self.playNextIfIdle()
         }
-    }
-
-    private func handle(_ msg: URLSessionWebSocketTask.Message) {
-        if case .string(let s) = msg,
-           let data = s.data(using: .utf8),
-           let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
-        {
-            switch obj["type"] as? String ?? "" {
-            case "ready":
-                ready = true
-                if let readyContinuation {
-                    self.readyContinuation = nil
-                    readyContinuation.resume()
-                }
-                return
-            case "error":
-                if let readyContinuation {
-                    self.readyContinuation = nil
-                    readyContinuation.resume(throwing: URLError(.badServerResponse))
-                }
-                return
-            default:
-                break
-            }
-        }
-        play(msg)
-    }
-
-    private func play(_ msg: URLSessionWebSocketTask.Message) {
-        let data: Data?
-        switch msg {
-        case .data(let d): data = d
-        case .string(let s):
-            guard let obj = try? JSONSerialization.jsonObject(with: Data(s.utf8)) as? [String: Any] else { return }
-            if let b64 = obj["audio"] as? String {
-                data = Data(base64Encoded: b64)
-            } else { data = nil }
-        @unknown default: data = nil
-        }
-        guard let data, !data.isEmpty else { return }
-        if !audioStarted {
-            do {
-                try engine.start()
-                player.play()
-                audioStarted = true
-            } catch {
-                NSLog("open-paw tts audio: %@", error.localizedDescription)
-                return
-            }
-        }
-        let frameCount = data.count / 2
-        guard let fmt = AVAudioFormat(commonFormat: .pcmFormatFloat32, sampleRate: 48000, channels: 1, interleaved: false),
-              let buf = AVAudioPCMBuffer(pcmFormat: fmt, frameCapacity: AVAudioFrameCount(frameCount)),
-              let ch = buf.floatChannelData
-        else { return }
-        buf.frameLength = AVAudioFrameCount(frameCount)
-        data.withUnsafeBytes { raw in
-            let src = raw.bindMemory(to: Int16.self)
-            for i in 0..<frameCount {
-                ch[0][i] = Float(src[i]) / 32768
-            }
-        }
-        player.scheduleBuffer(buf, completionHandler: nil)
     }
 }

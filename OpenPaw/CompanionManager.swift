@@ -686,6 +686,7 @@ final class CompanionManager: NSObject {
         guard state != .idle else { return }
         stopWaitProgress()
         if let rest = sentence.flush() { tts?.speak(rest) }
+        tts?.finishSpeaking()
         var stored = text
         if !toolNotes.isEmpty {
             stored += toolNotes

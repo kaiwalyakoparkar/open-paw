@@ -24,11 +24,13 @@ public struct ProcessArgv: Equatable {
     public var harness: HarnessKind?
     public var model: String?
     public var onboard: Bool
+    public var ttsTest: Bool
 
-    public init(harness: HarnessKind? = nil, model: String? = nil, onboard: Bool = false) {
+    public init(harness: HarnessKind? = nil, model: String? = nil, onboard: Bool = false, ttsTest: Bool = false) {
         self.harness = harness
         self.model = model
         self.onboard = onboard
+        self.ttsTest = ttsTest
     }
 
     public static func parse(_ args: [String]) -> ProcessArgv {
@@ -48,6 +50,7 @@ public struct ProcessArgv: Equatable {
             case "--terra": found.harness = .codex; found.model = "gpt-5.6-terra"
             case "--luna": found.harness = .codex; found.model = "gpt-5.6-luna"
             case "--onboard": found.onboard = true
+            case "--tts-test": found.ttsTest = true
             case "--model":
                 let n = i + 1
                 if n < args.count, !args[n].hasPrefix("-") {
